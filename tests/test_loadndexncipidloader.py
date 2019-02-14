@@ -23,15 +23,20 @@ class TestNdexncipidloader(unittest.TestCase):
 
     def test_parse_arguments(self):
         """Tests parse arguments"""
-        res = loadndexncipidloader._parse_arguments('hi', [])
+        res = loadndexncipidloader._parse_arguments('hi',
+                                                    ['--loadplan', 'plan',
+                                                     '--networkattribcsv',
+                                                     'net','foo'])
 
         self.assertEqual(res.profile, 'ndexncipidloader')
         self.assertEqual(res.verbose, 0)
         self.assertEqual(res.logconf, None)
         self.assertEqual(res.conf, None)
 
-        someargs = ['-vv','--conf', 'foo', '--logconf', 'hi',
-                    '--profile', 'myprofy']
+        someargs = ['-vv', '--conf', 'foo', '--logconf', 'hi',
+                    '--loadplan', 'plan',
+                    '--networkattribcsv', 'net',
+                    '--profile', 'myprofy', 'doublefoo']
         res = loadndexncipidloader._parse_arguments('hi', someargs)
 
         self.assertEqual(res.profile, 'myprofy')
@@ -49,7 +54,10 @@ class TestNdexncipidloader(unittest.TestCase):
             pass
 
         # args.logconf is None
-        res = loadndexncipidloader._parse_arguments('hi', [])
+        res = loadndexncipidloader._parse_arguments('hi', ['--loadplan',
+                                                           'plan',
+                                                           '--networkattribcsv',
+                                                           'net', 'foo'])
         loadndexncipidloader._setup_logging(res)
 
         # args.logconf set to a file
@@ -81,7 +89,11 @@ args=(sys.stderr,)
 format=%(asctime)s %(name)-12s %(levelname)-8s %(message)s""")
 
             res = loadndexncipidloader._parse_arguments('hi', ['--logconf',
-                                                                       logfile])
+                                                               logfile,
+                                                               '--loadplan',
+                                                               'plan',
+                                                               '--networkattribcsv',
+                                                               'net', temp_dir])
             loadndexncipidloader._setup_logging(res)
 
         finally:
@@ -102,8 +114,10 @@ format=%(asctime)s %(name)-12s %(levelname)-8s %(message)s""")
                                                      pw=NDExUtilConfig.PASSWORD,
                                                      server=NDExUtilConfig.SERVER))
             res = loadndexncipidloader.main(['myprog.py', '--conf',
-                                                     confile, '--profile',
-                                                     'hi'])
-            self.assertEqual(res, 0)
+                                             confile, '--profile', 'hi',
+                                             '--loadplan', 'plan',
+                                             '--networkattribcsv', 'net',
+                                             temp_dir])
+            self.assertEqual(res, 2)
         finally:
             shutil.rmtree(temp_dir)

@@ -25,8 +25,8 @@ class TestNdexncipidloader(unittest.TestCase):
         """Tests parse arguments"""
         res = loadndexncipidloader._parse_arguments('hi',
                                                     ['--loadplan', 'plan',
-                                                     '--networkattribcsv',
-                                                     'net','foo'])
+                                                     '--networkattrib',
+                                                     'net', 'foo'])
 
         self.assertEqual(res.profile, 'ndexncipidloader')
         self.assertEqual(res.verbose, 0)
@@ -35,7 +35,7 @@ class TestNdexncipidloader(unittest.TestCase):
 
         someargs = ['-vv', '--conf', 'foo', '--logconf', 'hi',
                     '--loadplan', 'plan',
-                    '--networkattribcsv', 'net',
+                    '--networkattrib', 'net',
                     '--profile', 'myprofy', 'doublefoo']
         res = loadndexncipidloader._parse_arguments('hi', someargs)
 
@@ -56,8 +56,9 @@ class TestNdexncipidloader(unittest.TestCase):
         # args.logconf is None
         res = loadndexncipidloader._parse_arguments('hi', ['--loadplan',
                                                            'plan',
-                                                           '--networkattribcsv',
-                                                           'net', 'foo'])
+                                                           '--networkattrib',
+                                                           'net',
+                                                           'foo'])
         loadndexncipidloader._setup_logging(res)
 
         # args.logconf set to a file
@@ -92,8 +93,9 @@ format=%(asctime)s %(name)-12s %(levelname)-8s %(message)s""")
                                                                logfile,
                                                                '--loadplan',
                                                                'plan',
-                                                               '--networkattribcsv',
-                                                               'net', temp_dir])
+                                                               '--networkattrib',
+                                                               'net',
+                                                               temp_dir])
             loadndexncipidloader._setup_logging(res)
 
         finally:
@@ -116,7 +118,7 @@ format=%(asctime)s %(name)-12s %(levelname)-8s %(message)s""")
             res = loadndexncipidloader.main(['myprog.py', '--conf',
                                              confile, '--profile', 'hi',
                                              '--loadplan', 'plan',
-                                             '--networkattribcsv', 'net',
+                                             '--networkattrib', 'net',
                                              temp_dir])
             self.assertEqual(res, 2)
         finally:

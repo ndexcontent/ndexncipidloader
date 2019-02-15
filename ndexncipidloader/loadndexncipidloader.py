@@ -371,7 +371,7 @@ class NDExNciPidLoader(object):
         Parses config
         :return:
         """
-        ncon = NDExUtilConfig()
+        ncon = NDExUtilConfig(conf_file=self._args.conf)
         con = ncon.get_config()
         self._user = con.get(self._args.profile, NDExUtilConfig.USER)
         self._pass = con.get(self._args.profile, NDExUtilConfig.PASSWORD)
@@ -425,6 +425,7 @@ class NDExNciPidLoader(object):
         :param network_id:
         :return:
         """
+        logger.debug('Getting network aspect for network: ' + network_id)
         nps = self._ndex.get_network_aspect_as_cx_stream(network_id, 'networkAttributes')
 
         network_properties = nps.json()
@@ -547,7 +548,7 @@ class NDExNciPidLoader(object):
             logger.error('File is empty: ' + path_to_sif)
             return None, None, None
 
-        with open(path_to_sif, 'rU') as f:
+        with open(path_to_sif, 'r') as f:
             lines = f.readlines()
 
         mode = "edge"
@@ -973,13 +974,14 @@ class NDExNciPidLoader(object):
         :return:
         """
         version_set = False
-        network_properties = self._get_network_properties(network_update_key)
-        for k, v in network_properties.items():
-            if k.upper() == 'VERSION':
-                network.set_network_attribute('version', self._args.releaseversion)
-                version_set = True
-            else:
-                network.set_network_attribute(k, v)
+        if network_update_key is not None:
+            network_properties = self._get_network_properties(network_update_key)
+            for k, v in network_properties.items():
+                if k.upper() == 'VERSION':
+                    network.set_network_attribute('version', self._args.releaseversion)
+                    version_set = True
+                else:
+                    network.set_network_attribute(k, v)
         if version_set is False:
             network.set_network_attribute('version', self._args.releaseversion)
 

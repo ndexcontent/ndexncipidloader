@@ -156,7 +156,7 @@ class GeneSymbolSearcher(object):
         if res is None:
             logger.debug('Got None back from query for: ' + val)
             return None
-        logger.warning('Result from query for ' + val + ' ' + str(res))
+        logger.debug('Result from query for ' + val + ' ' + str(res))
         if res['total'] == 0:
             logger.debug('Got No hits back from query for: ' + val)
             return None
@@ -199,7 +199,7 @@ class UniProtToGeneSymbolUpdater(object):
         for id, node in network.get_nodes():
             name = node.get('n')
             represents = node.get('r')
-            logger.warning('represents is: ' + represents.lower())
+            logger.debug('represents is: ' + represents.lower())
             if represents is None:
                 continue
             if 'uniprot:' + name.lower() in represents.lower():
@@ -220,6 +220,7 @@ class NetworkAttributesFromTSVFactory(object):
     def __init__(self, tsvfile, delim='\t',
                  pid_key='PID',
                  name_key='Pathway Name',
+                 cname_key='Corrected Pathway Name',
                  reviewed_key='Reviewed By',
                  curated_key='Curated By'):
         self._tsvfile = tsvfile
@@ -228,6 +229,7 @@ class NetworkAttributesFromTSVFactory(object):
         self._reviewed_key = reviewed_key
         self._curated_key = curated_key
         self._name_key = name_key
+        self._cname_key = cname_key
 
     def get_network_attributes_obj(self):
         if self._tsvfile is None:
@@ -243,6 +245,17 @@ class NetworkAttributesFromTSVFactory(object):
                                          str(df[self._reviewed_key][id]))
             net_attr.add_labels_entry(str(row),
                                       str(df[self._pid_key][id]))
+
+            # some network names only match in the corrected pathway column
+            if df[self._cname_key][id] is not None:
+                cnameval = str(df[self._cname_key][id])
+                if cnameval != '' and cnameval != 'nan':
+                    net_attr.add_author_entry(cnameval,
+                                              str(df[self._curated_key][id]))
+                    net_attr.add_reviewers_entry(cnameval,
+                                                 str(df[self._reviewed_key][id]))
+                    net_attr.add_labels_entry(cnameval,
+                                              str(df[self._pid_key][id]))
 
         return net_attr
 

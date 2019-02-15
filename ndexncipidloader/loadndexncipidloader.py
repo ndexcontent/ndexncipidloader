@@ -28,8 +28,8 @@ LOG_FORMAT = "%(asctime)-15s %(levelname)s %(relativeCreated)dms " \
              "%(filename)s::%(funcName)s():%(lineno)d %(message)s"
 
 PARTICIPANT_TYPE_MAP = {
-    'ProteinReference': 'Protein',
-    'SmallMoleculeReference': 'SmallMolecule'
+    'ProteinReference': 'protein',
+    'SmallMoleculeReference': 'smallmolecule'
 }
 
 DIRECTED_INTERACTIONS = ["controls-state-change-of",
@@ -60,6 +60,9 @@ def _parse_arguments(desc, args):
     help_fm = argparse.RawDescriptionHelpFormatter
     parser = argparse.ArgumentParser(description=desc,
                                      formatter_class=help_fm)
+    parser.add_argument('--version', action='version',
+                        version=('%(prog)s ' +
+                                 ndexncipidloader.__version__))
     parser.add_argument('--profile', help='Profile in configuration '
                                           'file to use to load '
                                           'NDEx credentials which means'
@@ -70,38 +73,36 @@ def _parse_arguments(desc, args):
                         default='ndexncipidloader')
     parser.add_argument('--logconf', default=None,
                         help='Path to python logging configuration file in '
-                             'this format: https://docs.python.org/3/library/'
-                             'logging.config.html#logging-config-fileformat '
-                             'Setting this overrides -v parameter which uses '
-                             ' default logger. (default None)')
+                             'format consumable by fileConfig. See '
+                             'https://docs.python.org/3/library/logging.html '
+                             'for more information. '
+                             'Setting this overrides -v|--verbose parameter '
+                             'which uses default logger. (default None)')
 
     parser.add_argument('--conf', help='Configuration file to load '
                                        '(default ~/' +
                                        NDExUtilConfig.CONFIG_FILE)
     parser.add_argument('--genesymbol', help='Path to gene symbol mapping json file')
     parser.add_argument('--loadplan', help='Load plan json file', required=True)
-    parser.add_argument('--networkattrib', help='tab delimited file containing'
+    parser.add_argument('--networkattrib', help='Tab delimited file containing '
                                                 'PID Pathway Name, reviewed by, '
-                                                'curated by and revision data'
+                                                'curated by and revision data '
                                                 'for ncipid networks', required=True)
-    parser.add_argument('--releaseversion', help='Sets version network attribute',
-                        default='FEB-2019')
-    parser.add_argument('--singlefile', help='Only process file matching name in'
+    parser.add_argument('--releaseversion',
+                        help='Sets version network attribute '
+                             '(default FEB-2019)', default='FEB-2019')
+    parser.add_argument('--singlefile', help='Only process file matching name in '
                                              '<sifdir>',
                         default=None)
     parser.add_argument('sifdir', help='Directory containing .sif files to parse')
     parser.add_argument('--verbose', '-v', action='count', default=0,
                         help='Increases verbosity of logger to standard '
-                             'error for log messages in this module and'
+                             'error for log messages in this module and '
                              'in ' + TSV2NICECXMODULE + '. Messages are '
                              'output at these python logging levels '
                              '-v = ERROR, -vv = WARNING, -vvv = INFO, '
-                             '-vvvv = DEBUG, -vvvvv = NOTSET (default no '
-                             'logging)')
-    parser.add_argument('--version', action='version',
-                        version=('%(prog)s ' +
-                                 ndexncipidloader.__version__))
-
+                             '-vvvv = DEBUG, -vvvvv = NOTSET (default is to '
+                             'log CRITICAL)')
     return parser.parse_args(args)
 
 
@@ -1038,7 +1039,8 @@ def main(args):
     desc = """
     Version {version}
 
-    Loads NDEx NCI-PID content loader data into NDEx (http://ndexbio.org).
+    Loads NDEx NCI-PID content loader data into NDEx (http://ndexbio.org)
+    using SIF files as input.
     
     To connect to NDEx server a configuration file must be passed
     into --conf parameter. If --conf is unset the configuration 
@@ -1046,7 +1048,7 @@ def main(args):
          
     The configuration file should be formatted as follows:
          
-    [<value in --profile (default ncipid)>]
+    [<value in --profile (default ndexncipidloader)>]
          
     {user} = <NDEx username>
     {password} = <NDEx password>
@@ -1061,6 +1063,22 @@ def main(args):
      {password} = somepassword123
      {server} = dev.ndexbio.org
      {style} = 86f63bf8-1b48-11e9-a05d-525400c25d22
+     
+     The sif files can be obtained from the anonymouse ftp site: 
+     ftp.ndexbio.org 
+     
+     Currently located here, but this may change: 
+     ftp://ftp.ndexbio.org/NCI_PID_EXTENDED_BINARY_SIF_2016-06-09-PC2v8 API/
+     
+     As for the style NDExUUID, there is a style.cx located in this directory:
+     https://github.com/coleslaw481/ndexncipidloader/tree/master/data
+     
+     which can be uploaded to NDEx to get a UUID. The network needs to
+     be put on the same server set in the {server} field and visible
+     to the account in {user} field.
+     
+     For more information about the transformations being performed
+     visit: https://github.com/coleslaw481/ndexncipidloader
     """.format(confname=NDExUtilConfig.CONFIG_FILE,
                user=NDExUtilConfig.USER,
                password=NDExUtilConfig.PASSWORD,

@@ -9,10 +9,10 @@ from logging import config
 import re
 import csv
 import json
-import time
 import pandas as pd
 import requests
 
+from biothings_client import get_client
 import ndexutil.tsv.tsv2nicecx2 as t2n
 
 from ndex2.client import Ndex2
@@ -127,6 +127,88 @@ def _setup_logging(args):
     # logconf was set use that file
     logging.config.fileConfig(args.logconf,
                               disable_existing_loggers=False)
+
+
+class GeneSymbolSearcher(object):
+    """
+    Wrapper around biothings_client to query
+    """
+    def __init__(self,
+                 bclient=get_client('gene')):
+        """
+        Constructor
+        """
+        self._cache = {}
+        self._bclient = bclient
+
+    def get_symbol(self, val):
+        """
+        Queries biothings_client with val to find
+        hit
+        :param val:
+        :return:
+        """
+        cache_symbol = self._cache.get(val)
+        if cache_symbol is not None:
+            return cache_symbol
+
+        res = self._bclient.query(val)
+        if res is None:
+            logger.debug('Got None back from query for: ' + val)
+            return None
+        logger.warning('Result from query for ' + val + ' ' + str(res))
+        if res['total'] == 0:
+            logger.debug('Got No hits back from query for: ' + val)
+            return None
+
+        if len(res['hits']) > 0:
+            logger.debug('Got a hit from query for: ' + val)
+
+            sym_name = res['hits'][0].get('symbol')
+            if sym_name is None:
+                logger.debug('Symbol name was None for ' + val)
+                return None
+            self._cache[val] = sym_name
+            return sym_name
+        return None
+
+
+class UniProtToGeneSymbolUpdater(object):
+    """
+    Given a network with nodes instances of this
+    class query the node name and see if that
+    name is in the represents field of that
+    node with a uniprot: prefix. If it is, this
+    object then queries XXX for a gene symbol. If
+    not found original name is left.
+    """
+    def __init__(self,
+                 searcher=GeneSymbolSearcher()):
+        """
+        Constructor
+        :param searcher: GeneSymbolSearcher object
+        """
+        self._searcher = searcher
+
+    def update(self, network):
+        """
+        Updates network nodes passed in
+        :param network:
+        :return:
+        """
+        for id, node in network.get_nodes():
+            name = node.get('n')
+            represents = node.get('r')
+            logger.warning('represents is: ' + represents.lower())
+            if represents is None:
+                continue
+            if 'uniprot:' + name.lower() in represents.lower():
+                # uniprot id is the node name
+                # use the lookup tool to try to
+                # find a gene symbol that can be used
+                symbol = self._searcher.get_symbol(name)
+                if symbol is not None:
+                    node['n'] = symbol
 
 
 class NetworkAttributesFromTSVFactory(object):
@@ -251,7 +333,8 @@ class NDExNciPidLoader(object):
     STYLE = 'style'
 
     def __init__(self, args,
-                 netattribfac=None):
+                 netattribfac=None,
+                 nodenameupdater=UniProtToGeneSymbolUpdater()):
         """
         Constructor
         """
@@ -267,6 +350,7 @@ class NDExNciPidLoader(object):
         self._loadplan = None
         self._netattrib = None
         self._netattribfac = netattribfac
+        self._nodenameupdater = nodenameupdater
 
     def _parse_config(self):
         """
@@ -823,6 +907,9 @@ class NDExNciPidLoader(object):
 
         # set labels, author, and reviewer network attributes
         self._set_labels_author_and_reviewer_attributes(network)
+
+        # update node names
+        self._nodenameupdater.update(network)
 
         if network_update_key is not None:
             return network.update_to(network_update_key, self._server, self._user, self._pass,

@@ -10,6 +10,8 @@ import shutil
 import unittest
 from ndexutil.config import NDExUtilConfig
 from ndexncipidloader import loadndexncipidloader
+from ndexncipidloader.loadndexncipidloader import NetworkAttributes
+from ndexncipidloader.loadndexncipidloader import NetworkAttributesFromTSVFactory
 
 
 class TestNdexncipidloader(unittest.TestCase):
@@ -43,7 +45,6 @@ class TestNdexncipidloader(unittest.TestCase):
         self.assertEqual(res.verbose, 2)
         self.assertEqual(res.logconf, 'hi')
         self.assertEqual(res.conf, 'foo')
-
 
     def test_setup_logging(self):
         """ Tests logging setup"""
@@ -121,5 +122,75 @@ format=%(asctime)s %(name)-12s %(levelname)-8s %(message)s""")
                                              '--networkattrib', 'net',
                                              temp_dir])
             self.assertEqual(res, 2)
+        finally:
+            shutil.rmtree(temp_dir)
+
+    def test_networkattributes(self):
+        na = NetworkAttributes()
+        self.assertEqual(na.get_author(None), None)
+        self.assertEqual(na.get_labels(None), None)
+        self.assertEqual(na.get_reviewers(None), None)
+
+        na.add_author_entry('boo', 'bauthor')
+        self.assertEqual(na.get_author(None), None)
+        self.assertEqual(na.get_labels(None), None)
+        self.assertEqual(na.get_reviewers(None), None)
+        self.assertEqual(na.get_author('boo'), 'bauthor')
+        self.assertEqual(na.get_labels('boo'), None)
+        self.assertEqual(na.get_reviewers('boo'), None)
+        self.assertEqual(na.get_author('far'), None)
+        self.assertEqual(na.get_labels('far'), None)
+        self.assertEqual(na.get_reviewers('far'), None)
+
+        na.add_labels_entry('boo', 'clabel')
+        self.assertEqual(na.get_author(None), None)
+        self.assertEqual(na.get_labels(None), None)
+        self.assertEqual(na.get_reviewers(None), None)
+        self.assertEqual(na.get_author('boo'), 'bauthor')
+        self.assertEqual(na.get_labels('boo'), 'clabel')
+        self.assertEqual(na.get_reviewers('boo'), None)
+        self.assertEqual(na.get_author('far'), None)
+        self.assertEqual(na.get_labels('far'), None)
+        self.assertEqual(na.get_reviewers('far'), None)
+
+        na.add_reviewers_entry('boo', 'dreviewer')
+        self.assertEqual(na.get_author(None), None)
+        self.assertEqual(na.get_labels(None), None)
+        self.assertEqual(na.get_reviewers(None), None)
+        self.assertEqual(na.get_author('boo'), 'bauthor')
+        self.assertEqual(na.get_labels('boo'), 'clabel')
+        self.assertEqual(na.get_reviewers('boo'), 'dreviewer')
+        self.assertEqual(na.get_author('far'), None)
+        self.assertEqual(na.get_labels('far'), None)
+        self.assertEqual(na.get_reviewers('far'), None)
+
+        na.add_labels_entry('well', 'there')
+        self.assertEqual(na.get_labels('well'), 'there')
+
+        na.add_reviewers_entry('yoyo', 'hh')
+        self.assertEqual(na.get_reviewers('yoyo'), 'hh')
+
+    def test_networkattributesfromtsvfactory(self):
+        try:
+            fac = NetworkAttributesFromTSVFactory(None, delim=',')
+            self.assertEqual(fac.get_network_attributes_obj(), None)
+
+            temp_dir = tempfile.mkdtemp()
+            tsvfile = os.path.join(temp_dir, 'net.tsv')
+            with open(tsvfile, 'w') as f:
+                f.write("""PID,Pathway Name,Corrected Pathway Name,Reviewed By,Curated By,Revision Date
+a4b7_pathway,a4b7 Integrin signaling,,"David Rose, Francisco Sanchez-Madrid, Maria Mittelbrunn",Shiva Krupa,18-Sep-10
+a6b1_a6b4_integrin_pathway,a6b1 and a6b4 Integrin signaling,,"Arthur Mercurio,",Shiva Krupa,9-Mar-09""")
+            fac = NetworkAttributesFromTSVFactory(tsvfile, delim=',')
+            na = fac.get_network_attributes_obj()
+            self.assertEqual(na.get_labels('a4b7 Integrin signaling'),
+                             'a4b7_pathway')
+            self.assertEqual(na.get_reviewers('a4b7 Integrin signaling'),
+                             'David Rose, Francisco Sanchez-Madrid, Maria Mittelbrunn')
+            self.assertEqual(na.get_author('a4b7 Integrin signaling'),
+                             'Shiva Krupa')
+
+
+
         finally:
             shutil.rmtree(temp_dir)

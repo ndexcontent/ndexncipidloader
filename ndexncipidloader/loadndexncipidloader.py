@@ -9,13 +9,14 @@ from logging import config
 import re
 import csv
 import json
+import time
 import pandas as pd
 import requests
 
 import ndexutil.tsv.tsv2nicecx2 as t2n
 
 from ndex2.client import Ndex2
-from ndexutil.exceptions import NDExUtilError
+from ndexncipidloader.exceptions import NDExNciPidLoaderError
 from ndexutil.config import NDExUtilConfig
 import ndexncipidloader
 
@@ -84,7 +85,7 @@ def _parse_arguments(desc, args):
                                                 'curated by and revision data'
                                                 'for ncipid networks', required=True)
     parser.add_argument('--releaseversion', help='Sets version network attribute',
-                        default='APR-2018')
+                        default='FEB-2019')
     parser.add_argument('--singlefile', help='Only process file matching name in'
                                              '<sifdir>',
                         default=None)
@@ -128,13 +129,129 @@ def _setup_logging(args):
                               disable_existing_loggers=False)
 
 
+class NetworkAttributesFromTSVFactory(object):
+    """
+    Factory to create NetworkAttributes object
+    from TSV file using Pandas
+    """
+
+    def __init__(self, tsvfile, delim='\t',
+                 pid_key='PID',
+                 name_key='Pathway Name',
+                 reviewed_key='Reviewed By',
+                 curated_key='Curated By'):
+        self._tsvfile = tsvfile
+        self._delim = delim
+        self._pid_key = pid_key
+        self._reviewed_key = reviewed_key
+        self._curated_key = curated_key
+        self._name_key = name_key
+
+    def get_network_attributes_obj(self):
+        if self._tsvfile is None:
+            logger.error('TSV file is None')
+            return None
+
+        df = pd.read_csv(self._tsvfile, sep=self._delim)
+        net_attr = NetworkAttributes()
+        for id, row in enumerate(df[self._name_key]):
+            net_attr.add_author_entry(str(row),
+                                      str(df[self._curated_key][id]))
+            net_attr.add_reviewers_entry(str(row),
+                                         str(df[self._reviewed_key][id]))
+            net_attr.add_labels_entry(str(row),
+                                      str(df[self._pid_key][id]))
+
+        return net_attr
+
+
+class NetworkAttributes(object):
+    """
+    Contains database of additional network attributes
+    for NCI-PID networks
+    """
+    LABELS = 'labels'
+    AUTHOR = 'author'
+    REVIEWERS = 'reviewers'
+
+    def __init__(self):
+        """
+        Constructor
+        """
+        self._db = {}
+
+    def add_labels_entry(self, name, val):
+        """
+        Add label 'val' to network 'name'
+        :param name:
+        :param val:
+        :return:
+        """
+        if name not in self._db:
+            self._db[name] = {}
+        self._db[name][NetworkAttributes.LABELS] = val
+
+    def add_author_entry(self, name, val):
+        """
+        Add author 'val' to network 'name'
+        :param name:
+        :param val:
+        :return:
+        """
+        if name not in self._db:
+            self._db[name] = {}
+        self._db[name][NetworkAttributes.AUTHOR] = val
+
+    def add_reviewers_entry(self, name, val):
+        """
+        Add reviewer 'val' to network 'name'
+        :param name:
+        :param val:
+        :return:
+        """
+        if name not in self._db:
+            self._db[name] = {}
+        self._db[name][NetworkAttributes.REVIEWERS] = val
+
+    def get_labels(self, name):
+        """
+        Get labels with network name
+        :param name:
+        :return:
+        """
+        if name not in self._db:
+            return None
+        return self._db[name].get(NetworkAttributes.LABELS)
+
+    def get_author(self, name):
+        """
+        Gets author with network name
+        :param name:
+        :return:
+        """
+        if name not in self._db:
+            return None
+        return self._db[name].get(NetworkAttributes.AUTHOR)
+
+    def get_reviewers(self, name):
+        """
+        Gets reviewers with network name
+        :param name:
+        :return:
+        """
+        if name not in self._db:
+            return None
+        return self._db[name].get(NetworkAttributes.REVIEWERS)
+
+
 class NDExNciPidLoader(object):
     """
     Loads content from NCI-PID sif files to NDEx
     """
     STYLE = 'style'
 
-    def __init__(self, args):
+    def __init__(self, args,
+                 netattribfac=None):
         """
         Constructor
         """
@@ -148,6 +265,8 @@ class NDExNciPidLoader(object):
         self._ndex = None
         self._node_mapping = {}
         self._loadplan = None
+        self._netattrib = None
+        self._netattribfac = netattribfac
 
     def _parse_config(self):
         """
@@ -169,13 +288,21 @@ class NDExNciPidLoader(object):
         with open(self._args.loadplan, 'r') as f:
             self._loadplan = json.load(f)
 
+    def _load_network_attributes(self):
+        """
+        Uses netattribfac passed in constructor to create
+        a network attributes object
+        :return:
+        """
+        self._netattrib = self._netattribfac.get_network_attributes_obj()
+
     def _load_gene_symbol_map(self):
         """
-        Loads gene symbol map
+        Loads gene symbol map from command line flag --genesymbol
         :return:
         """
         if not os.path.isfile(self._args.genesymbol):
-            raise NDExUtilError('Gene symbol mapping file ' +
+            raise NDExNciPidLoaderError('Gene symbol mapping file ' +
                                 str(self._args.genesymbol) +
                                 ' does not exist')
 
@@ -688,20 +815,55 @@ class NDExNciPidLoader(object):
         network.apply_template(self._server, self._template,
                                username=self._user, password=self._pass)
 
+        # set the version in the network
         self._set_version_in_network_attributes(network_update_key, network)
-        if network_update_key is not None:
-            # this is a bit weird, if its a new network then the version wont be
-            # set
-            self._set_version_in_network_attributes(network_update_key, network)
 
+        # set common attributes from style network
+        self._set_network_attributes_from_style_network(network)
+
+        # set labels, author, and reviewer network attributes
+        self._set_labels_author_and_reviewer_attributes(network)
+
+        if network_update_key is not None:
             return network.update_to(network_update_key, self._server, self._user, self._pass,
                                      user_agent=self._get_user_agent())
         else:
             upload_message = network.upload_to(self._server, self._user,
                                                self._pass,
                                                user_agent=self._get_user_agent())
-            time.sleep(1)
             return upload_message
+
+    def _set_labels_author_and_reviewer_attributes(self, network):
+        """
+
+        :param network:
+        :return:
+        """
+        name = network.get_name()
+        author = self._netattrib.get_author(name)
+        if author is not None:
+            network.set_network_attribute(NetworkAttributes.AUTHOR,
+                                          author)
+        reviewers = self._netattrib.get_reviewers(name)
+        if reviewers is not None:
+            network.set_network_attribute(NetworkAttributes.REVIEWERS,
+                                          reviewers)
+        labels = self._netattrib.get_labels(name)
+        if labels is not None:
+            network.set_network_attribute(NetworkAttributes.LABELS,
+                                          labels)
+
+    def _set_network_attributes_from_style_network(self, network):
+        """
+        Copies organism and description network from style aka template
+        network and adds it to the network passed in.
+        :param network:
+        :return:
+        """
+        network_properties = self._get_network_properties(self._template)
+        for k, v in network_properties.items():
+            if k.upper() in ['ORGANISM', 'DESCRIPTION']:
+                network.set_network_attribute(k, v)
 
     def _set_version_in_network_attributes(self, network_update_key, network):
         """
@@ -709,12 +871,16 @@ class NDExNciPidLoader(object):
         :param network:
         :return:
         """
+        version_set = False
         network_properties = self._get_network_properties(network_update_key)
         for k, v in network_properties.items():
             if k.upper() == 'VERSION':
                 network.set_network_attribute('version', self._args.releaseversion)
+                version_set = True
             else:
                 network.set_network_attribute(k, v)
+        if version_set is False:
+            network.set_network_attribute('version', self._args.releaseversion)
 
     def _get_user_agent(self):
         """
@@ -722,6 +888,7 @@ class NDExNciPidLoader(object):
         :return:
         """
         return 'ncipid/' + self._args.version
+
     def _create_ndex_connection(self):
         """
         creates connection to ndex
@@ -742,6 +909,7 @@ class NDExNciPidLoader(object):
         self._load_gene_symbol_map()
         self._load_network_summaries_for_user()
         self._parse_load_plan()
+        self._load_network_attributes()
 
         file_reverse = sorted(os.listdir(self._args.sifdir),
                               key=lambda s: s.lower(), reverse=True)
@@ -805,7 +973,9 @@ def main(args):
 
     try:
         _setup_logging(theargs)
-        loader = NDExNciPidLoader(theargs)
+        nafac = NetworkAttributesFromTSVFactory(theargs.networkattrib)
+        loader = NDExNciPidLoader(theargs,
+                                  netattribfac=nafac)
         return loader.run()
     except Exception as e:
         logger.exception('Caught exception')

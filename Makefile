@@ -91,9 +91,9 @@ install: clean ## install the package to the active Python's site-packages
 	python setup.py install
 
 dockerbuild: ## build docker image and store in local repository
-	@cv=`egrep '^\s+version=' setup.py | sed "s/^.*='//" | sed "s/'.*//"`; \
+	@cv=`grep '__version__' ndexncipidloader/__init__.py | sed "s/^.*= *'//" | sed "s/'.*//"`; \
 	docker build -t coleslaw481/ndexncipidloader:$$cv -f docker/Dockerfile .
 
 dockerpush: ## push image to dockerhub
-	@cv=`egrep '^\s+version=' setup.py | sed "s/^.*='//" | sed "s/'.*//"`; \
+	@cv=`grep '__version__' ndexncipidloader/__init__.py | sed "s/^.*= *'//" | sed "s/'.*//"`; \
 	docker push coleslaw481/ndexncipidloader:$$cv

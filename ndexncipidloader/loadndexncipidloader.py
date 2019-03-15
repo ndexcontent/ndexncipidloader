@@ -56,6 +56,7 @@ DEFAULT_FTP_HOST='ftp.ndexbio.org'
 DEFAULT_FTP_DIR='NCI_PID_BIOPAX_2016-06-08-PC2v8-API'
 DEFAULT_FTP_USER='anonymous'
 DEFAULT_FTP_PASS='anonymous'
+FTP_SUBDIR = 'ftp'
 
 def _parse_arguments(desc, args):
     """
@@ -1057,11 +1058,37 @@ class NDExNciPidLoader(object):
 
 class PaxtoolsRunner(object):
     """Runs paxtools.jar to convert .owl files to .sif"""
-    def __init__(self):
-        """Constructor"""
-        pass
 
-    def
+    def __init__(self, ftpdir, outdir, paxtools):
+        """Constructor"""
+        self._ftpdir = ftpdir
+        self._outdir = outdir
+        self._paxtools = paxtools
+
+    def run_paxtools(self):
+        """Runs paxtools on .owl files in ftp directory writing
+        them to outdir
+        """
+        for entry in self._ftpdir:
+            if not entry.endswith('.owl'):
+                continue
+            owlfile = os.path.join(self._ftpdir, entry)
+            siffile = os.path.join(self._outdir, re.sub('\.owl', '\.sif', entry))
+
+
+    def _run_paxtool(self, owlfile, siffile):
+        """
+        Runs paxtools
+        :param owlfile:
+        :param siffile:
+        :return:
+        """
+        cmd = ('java -jar ' + self._paxtools + ' toSIF "' + owlfile + '" "' + siffile +
+               '" "seqDb=hgnc,uniprot,refseq,ncbi,entrez,ensembl" "chemDb=chebi,pubchem" ' +
+               '-useNameIfNoId -extended')
+        logger.info('Running ' + cmd)
+        
+
 
 class FtpDataDownloader(object):
     """Downloads owl files from ftp site"""
@@ -1177,7 +1204,9 @@ def main(args):
         _setup_logging(theargs)
         if theargs.download is True:
             logger.info('Downloading data from ftp')
-            dloader = FtpDataDownloader(os.path.abspath(theargs.sifdir))
+            outdir = os.path.abspath(theargs.sifdir)
+            ftpdir = os.path.join(outdir, FTP_SUBDIR)
+            dloader = FtpDataDownloader(ftpdir)
             dloader.connect_to_ftp()
             dloader.download_data()
             dloader.disconnect()

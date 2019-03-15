@@ -11,7 +11,10 @@ import csv
 import json
 import pandas as pd
 import requests
+import gzip
+import re
 
+from ftpretty import ftpretty
 from biothings_client import get_client
 import ndexutil.tsv.tsv2nicecx2 as t2n
 
@@ -49,6 +52,10 @@ CONTROL_INTERACTIONS = ["controls-state-change-of",
                         "controls-expression-of"
                         ]
 
+DEFAULT_FTP_HOST='ftp.ndexbio.org'
+DEFAULT_FTP_DIR='NCI_PID_BIOPAX_2016-06-08-PC2v8-API'
+DEFAULT_FTP_USER='anonymous'
+DEFAULT_FTP_PASS='anonymous'
 
 def _parse_arguments(desc, args):
     """
@@ -94,6 +101,22 @@ def _parse_arguments(desc, args):
     parser.add_argument('--singlefile', help='Only process file matching name in '
                                              '<sifdir>',
                         default=None)
+    parser.add_argument('--paxtools', help='Path to paxtools.jar file used to convert'
+                                           'owl file to sif file. Only used if'
+                                           '--download flag is set')
+    parser.add_argument('--download', action='store_true',
+                        help='If set, files from ftp directory'
+                        'set in --ftpurl will be downloaded'
+                        'and if needed owl files are converted to sif files'
+                        'by paxtools set with --paxtools jar')
+    parser.add_argument('--ftphost', help='FTP host to download owl or sif files from '
+                                          'only needed if --download flag set '
+                                          '(default ' + DEFAULT_FTP_HOST + ')',
+                        default=DEFAULT_FTP_HOST)
+    parser.add_argument('--ftpdir', help='FTP directory to download owl or sif files from '
+                                         'only needed if --download flag set '
+                                         '(default ' + DEFAULT_FTP_DIR + ')',
+                        default=DEFAULT_FTP_DIR)
     parser.add_argument('sifdir', help='Directory containing .sif files to parse')
     parser.add_argument('--verbose', '-v', action='count', default=0,
                         help='Increases verbosity of logger to standard '
@@ -1032,6 +1055,65 @@ class NDExNciPidLoader(object):
         return 0
 
 
+class PaxtoolsRunner(object):
+    """Runs paxtools.jar to convert .owl files to .sif"""
+    def __init__(self):
+        """Constructor"""
+        pass
+
+    def
+
+class FtpDataDownloader(object):
+    """Downloads owl files from ftp site"""
+    def __init__(self, outdir, ftphost=DEFAULT_FTP_HOST,
+                 ftpdir=DEFAULT_FTP_DIR,
+                 ftpuser=DEFAULT_FTP_USER,
+                 ftppass=DEFAULT_FTP_PASS,
+                 timeout=10):
+        """Constructor"""
+        self._ftphost = ftphost
+        self._ftpdir = ftpdir
+        self._ftpuser = ftpuser
+        self._ftppass = ftppass
+        self._outdir = outdir
+        self._timeout = timeout
+        self._altftp = None
+        self._ftp = None
+
+    def set_alternate_ftp(self, altftp):
+        """Sets alternate ftp connection"""
+        self._altftp = altftp
+
+    def connect_to_ftp(self):
+        """Connects to ftp server"""
+        if self._altftp is not None:
+            self._ftp = self._altftp
+            return
+        self._ftp = ftpretty(self._ftphost, self._ftpuser, self._ftppass,
+                             timeout=self._timeout)
+        return
+
+    def disconnect(self):
+        if self._ftp is not None:
+            self._ftp.close()
+
+    def download_data(self):
+        """Downloads data from ftp"""
+        if not os.path.isdir(self._outdir):
+            os.makedirs(self._outdir, mode=0o755)
+
+        for entry in self._ftp.list(self._ftpdir):
+            destfile = re.sub('\.gz', '', os.path.join(self._outdir, os.path.basename(entry)))
+            logger.info('Downloading ' + entry + ' to ' + destfile)
+            if entry.endswith('.gz'):
+                data = self._ftp.get(entry)
+                with open(destfile, 'wb') as f:
+                    f.write(gzip.decompress(data))
+            else:
+                with open(destfile, 'wb') as f:
+                    self._ftp.get(entry, f)
+
+
 def main(args):
     """
     Main entry point for program
@@ -1093,6 +1175,13 @@ def main(args):
 
     try:
         _setup_logging(theargs)
+        if theargs.download is True:
+            logger.info('Downloading data from ftp')
+            dloader = FtpDataDownloader(os.path.abspath(theargs.sifdir))
+            dloader.connect_to_ftp()
+            dloader.download_data()
+            dloader.disconnect()
+            sys.exit(1)
         nafac = NetworkAttributesFromTSVFactory(theargs.networkattrib)
         loader = NDExNciPidLoader(theargs,
                                   netattribfac=nafac)

@@ -16,6 +16,9 @@ NDEx NCI-PID content loader
 
 Python application that loads NCI-PID data into NDEx_
 
+This tool parses tab delimited files that can be downloaded from an NDEx ftp site (see Needed Files below)
+to generate the networks.
+
 
 Tools
 -----
@@ -87,12 +90,30 @@ to be visible to the **user**
 Needed files
 ------------
 
-SIF files can be found here: ftp://ftp.ndexbio.org/NCI_PID_EXTENDED_BINARY_SIF_2016-06-09-PC2v8%20API/
+Several steps of processing are needed to generate the SIF files.
 
-Files for :code:`--genesymbol, --networkattrib, --loadplan` flags can be found here:
+**TODO:** Add a script this tool to generate these SIF files
 
-https://github.com/coleslaw481/ndexncipidloader/tree/master/data
+1) Download **owl.gz** files from: ftp://ftp.ndexbio.org/NCI_PID_BIOPAX_2016-06-08-PC2v8-API/
 
+2) Gunzip **.owl** files
+
+3) Download paxtools.jar (http://www.biopax.org/Paxtools/) (requires Java 8+)
+
+4) Run the following command for each **.owl** file putting **.sif** files in a directory by themselves:
+
+.. code-block::
+
+    java -jar paxtools.jar toSIF <INPUT OWL FILE> <INPUT OWL FILE WITH .owl replaced with .sif> \
+             "seqDb=hgnc,uniprot,refseq,ncbi,entrez,ensembl" \
+             "chemDb=chebi,pubchem" -useNameIfNoId -extended
+
+
+Files for :code:`--genesymbol, --networkattrib, --loadplan` flags can be found under the **data/** subdirectory
+of this repository.
+
+* **netattrib.tsv** appears to be a tab delimited export of `this excel file <https://github.com/NCIP/pathway-interaction-database/blob/master/download/NCI-Pathway-Info.xlsx>`_
+* **gene_symbol_mapping.json** appears to have come from a previous run of ncipid processing with `this script <https://github.com/ndexbio/ndexutils/blob/master/ndexutil/ebs/ebs2cx.py>`_
 
 Usage
 -----
@@ -121,6 +142,7 @@ file has been created in current working directory and named :code:`conf`
 .. code-block::
 
    docker run -v `pwd`:`pwd` -w `pwd` coleslawndex/ndexncipidloader:0.1.0 loadndexncipidloader.py --conf conf --genesymbol gene_symbol_mapping.json --loadplan loadplan.json --networkattrib netattrib.tsv sif
+
 
 Credits
 -------

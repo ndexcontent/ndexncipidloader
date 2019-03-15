@@ -20,6 +20,7 @@ with open('HISTORY.rst') as history_file:
 requirements = [ 'ndex2==3.0.0a1',
                  'ndexutil==0.1.0a2',
                  'biothings_client',
+                 'ftpretty',
                  'requests',
                  'pandas']
 

@@ -6,6 +6,7 @@ import argparse
 import sys
 import logging
 from logging import config
+import subprocess
 import re
 import csv
 import json
@@ -520,7 +521,10 @@ class NDExNciPidLoader(object):
             if participant_name is not None and '_HUMAN' in participant_name and self._gene_symbol_map.get(
                     participant_name) is None:
                 id_list.append(participant_name)
-        logger.info('Lookup: ' + str(id_list))
+        if len(id_list) is 0:
+            return
+
+        logger.debug('List of ids to lookup on biodbnet: ' + str(id_list))
         # =================================
         # LOOKUP UNIPROT ID -> GENE SYMBOL
         # =================================
@@ -652,8 +656,17 @@ class NDExNciPidLoader(object):
 
             node_type = network.get_node_attribute(k, 'type')
             logger.debug('node_type: ' + str(node_type))
-            network.set_node_attribute(k, 'type', PARTICIPANT_TYPE_MAP.get(node_type['v']),
-                                       overwrite=True)
+            typeval = PARTICIPANT_TYPE_MAP.get(node_type['v'])
+            if typeval is None:
+                logger.error('node_type value [' + node_type['v'] + '] is not in ' + str(PARTICIPANT_TYPE_MAP) +
+                             ' seeing if type is part of value')
+                for entry in PARTICIPANT_TYPE_MAP.keys():
+                    if entry in node_type['v']:
+                        typeval = entry
+                        break
+            if typeval is not None:
+                network.set_node_attribute(k, 'type', typeval,
+                                           overwrite=True)
 
     def _get_edge_type_maps(self, network):
         """
@@ -921,10 +934,21 @@ class NDExNciPidLoader(object):
 
             self._update_node_name_with_gene_symbol(node_to_update, participant_name)
 
-            network.set_node_attribute(node_to_update['@id'], 'type',
-                                       PARTICIPANT_TYPE_MAP.get(node_info.get('PARTICIPANT_TYPE')),
-                                       type='string',
-                                       overwrite=True)
+            typeval = PARTICIPANT_TYPE_MAP.get(node_info.get('PARTICIPANT_TYPE'))
+            if typeval is None:
+                logger.error('For file: ' + file_name + ' ' +
+                             node_info.get('PARTICIPANT_TYPE') +
+                             ' not in ' + str(PARTICIPANT_TYPE_MAP) +
+                             ' trying to see if type is within value')
+                for entry in PARTICIPANT_TYPE_MAP.keys():
+                    if entry in node_info.get('PARTICIPANT_TYPE'):
+                        typeval = entry
+                        break
+            if typeval is not None:
+                network.set_node_attribute(node_to_update['@id'], 'type',
+                                           typeval,
+                                           type='string',
+                                           overwrite=True)
 
         # ebs_network = NdexGraph(cx=network.to_cx())
 
@@ -1069,12 +1093,18 @@ class PaxtoolsRunner(object):
         """Runs paxtools on .owl files in ftp directory writing
         them to outdir
         """
-        for entry in self._ftpdir:
+        counter = 0
+        logger.info('Running ' + self._paxtools + ' on .owl files in ' + self._ftpdir)
+        for entry in os.listdir(self._ftpdir):
             if not entry.endswith('.owl'):
                 continue
             owlfile = os.path.join(self._ftpdir, entry)
-            siffile = os.path.join(self._outdir, re.sub('\.owl', '\.sif', entry))
-
+            siffile = os.path.join(self._outdir, re.sub('\.owl', '.sif', entry))
+            if os.path.isfile(siffile):
+                continue
+            self._run_paxtool(owlfile, siffile)
+            counter += 1
+        logger.info('Ran ' + self._paxtools + ' on ' + str(counter) + ' files')
 
     def _run_paxtool(self, owlfile, siffile):
         """
@@ -1083,11 +1113,14 @@ class PaxtoolsRunner(object):
         :param siffile:
         :return:
         """
-        cmd = ('java -jar ' + self._paxtools + ' toSIF "' + owlfile + '" "' + siffile +
-               '" "seqDb=hgnc,uniprot,refseq,ncbi,entrez,ensembl" "chemDb=chebi,pubchem" ' +
-               '-useNameIfNoId -extended')
-        logger.info('Running ' + cmd)
-        
+        cmd = ['java', '-jar',
+               self._paxtools, 'toSIF', owlfile, siffile,
+               'seqDb=hgnc,uniprot,refseq,ncbi,entrez,ensembl', 'chemDb=chebi,pubchem',
+               '-useNameIfNoId', '-extended']
+        logger.debug('Running ' + ' '.join(cmd))
+        status = subprocess.call(cmd)
+        if status is not 0:
+            logger.error('Got non zero exit from command')
 
 
 class FtpDataDownloader(object):
@@ -1128,10 +1161,18 @@ class FtpDataDownloader(object):
         """Downloads data from ftp"""
         if not os.path.isdir(self._outdir):
             os.makedirs(self._outdir, mode=0o755)
-
-        for entry in self._ftp.list(self._ftpdir):
+        filelist = self._ftp.list(self._ftpdir)
+        if filelist is None:
+            logger.error('No files found in ftp directory')
+            return
+        logger.info('Found ' + str(len(filelist)) + ' files in ftp directory. Starting download')
+        counter = 0
+        for entry in filelist:
             destfile = re.sub('\.gz', '', os.path.join(self._outdir, os.path.basename(entry)))
-            logger.info('Downloading ' + entry + ' to ' + destfile)
+            if os.path.isfile(destfile) and os.path.getsize(destfile) > 0:
+                logger.debug(entry + ' appears to have been downloaded. Skipping...')
+                continue
+            logger.debug('Downloading ' + entry + ' to ' + destfile)
             if entry.endswith('.gz'):
                 data = self._ftp.get(entry)
                 with open(destfile, 'wb') as f:
@@ -1139,6 +1180,8 @@ class FtpDataDownloader(object):
             else:
                 with open(destfile, 'wb') as f:
                     self._ftp.get(entry, f)
+            counter += 1
+        logger.info('Downloaded ' + str(counter) + ' files')
 
 
 def main(args):
@@ -1203,17 +1246,21 @@ def main(args):
     try:
         _setup_logging(theargs)
         if theargs.download is True:
-            logger.info('Downloading data from ftp')
+            logger.info('--download set. Downloading data from ftp')
             outdir = os.path.abspath(theargs.sifdir)
             ftpdir = os.path.join(outdir, FTP_SUBDIR)
+            paxtools = os.path.abspath(theargs.paxtools)
             dloader = FtpDataDownloader(ftpdir)
             dloader.connect_to_ftp()
             dloader.download_data()
             dloader.disconnect()
-            sys.exit(1)
+            paxy = PaxtoolsRunner(ftpdir, outdir, paxtools)
+            paxy.run_paxtools()
+
         nafac = NetworkAttributesFromTSVFactory(theargs.networkattrib)
         loader = NDExNciPidLoader(theargs,
                                   netattribfac=nafac)
+        logger.info('Running network generation')
         return loader.run()
     except Exception as e:
         logger.exception('Caught exception')

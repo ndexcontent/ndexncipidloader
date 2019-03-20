@@ -15,7 +15,7 @@ For help add -h:
 
    loadndexncipidloader.py -h
 
-Files needed for --genesymbol, --loadplan, and --networkattrib can
+Files needed for --genesymbol, --loadplan, --style, and --networkattrib can
 be found in the /ndexncipidloader directory in this Docker image or
 by visiting: https://github.com/coleslaw481/ndexncipidloader/data.
 

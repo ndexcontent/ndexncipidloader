@@ -19,7 +19,9 @@ from ftpretty import ftpretty
 from biothings_client import get_client
 import ndexutil.tsv.tsv2nicecx2 as t2n
 
+import networkx as nx
 from ndex2.client import Ndex2
+import ndex2
 from ndexncipidloader.exceptions import NDExNciPidLoaderError
 from ndexutil.config import NDExUtilConfig
 import ndexncipidloader
@@ -59,6 +61,7 @@ DEFAULT_FTP_USER='anonymous'
 DEFAULT_FTP_PASS='anonymous'
 FTP_SUBDIR = 'ftp'
 
+
 def _parse_arguments(desc, args):
     """
     Parses command line arguments
@@ -97,6 +100,8 @@ def _parse_arguments(desc, args):
                                                 'PID Pathway Name, reviewed by, '
                                                 'curated by and revision data '
                                                 'for ncipid networks', required=True)
+    parser.add_argument('--style', help='Path to NDEx CX file to use for styling'
+                                        'networks', required=True)
     parser.add_argument('--releaseversion',
                         help='Sets version network attribute '
                              '(default FEB-2019)', default='FEB-2019')
@@ -401,7 +406,6 @@ class NDExNciPidLoader(object):
         self._user = con.get(self._args.profile, NDExUtilConfig.USER)
         self._pass = con.get(self._args.profile, NDExUtilConfig.PASSWORD)
         self._server = con.get(self._args.profile, NDExUtilConfig.SERVER)
-        self._template = con.get(self._args.profile, NDExNciPidLoader.STYLE)
 
     def _parse_load_plan(self):
         """
@@ -418,6 +422,13 @@ class NDExNciPidLoader(object):
         :return:
         """
         self._netattrib = self._netattribfac.get_network_attributes_obj()
+
+    def _load_style_template(self):
+        """
+        Loads the CX network specified by self._args.style into self._template
+        :return:
+        """
+        self._template = ndex2.create_nice_cx_from_file(os.path.abspath(self._args.style))
 
     def _load_gene_symbol_map(self):
         """
@@ -884,6 +895,44 @@ class NDExNciPidLoader(object):
                 node_to_update['n'] = participant_name
         return participant_name
 
+    def _cartesian(self, G):
+        return [{'node': n,
+                 'x': float(G.pos[n][0]),
+                 'y': float(G.pos[n][1])} for n in G.pos]
+
+    def _apply_spring_layout(self, network, scale=500.0):
+        """
+        Applies networkx spring layout to CX network
+        :param network:
+        :param scale:
+        :return:
+        """
+        num_nodes = len(network.get_nodes())
+        my_networkx = network.to_networkx()
+        for edgetuple in my_networkx.edges(data=True):
+            edgetuple[2]['weight'] = 1.0
+            if 'interaction' in edgetuple[2]:
+                logger.info('Found edge: ' + str(edgetuple))
+                if edgetuple[2]['interaction'] == 'neighbor-of':
+                    edgetuple[2]['weight'] = 0.0
+                elif edgetuple[2]['interaction'] == 'in-complex-with':
+                    edgetuple[2]['weight'] = 2.0
+                elif edgetuple[2]['interaction'] == 'controls-expression-of':
+                    edgetuple[2]['weight'] = 1.0
+                else:
+                    edgetuple[2]['weight'] = 2.0
+            if edgetuple[2]['directed'] is True:
+                edgetuple[2]['weight'] += 5000.0
+            logger.info('Updated edge: ' + str(edgetuple))
+
+        for edgetuple in my_networkx.edges(data=True):
+            logger.info('Checking: ' + str(edgetuple))
+
+        my_networkx.pos = nx.drawing.spring_layout(my_networkx, k=float(float(num_nodes)), scale=num_nodes*50,
+                                                   iterations=1, weight='weight')
+        cartesian_aspect = self._cartesian(my_networkx)
+        network.set_opaque_aspect("cartesianLayout", cartesian_aspect)
+
     def _process_sif(self, file_name):
         """
         Processes sif file
@@ -953,14 +1002,14 @@ class NDExNciPidLoader(object):
         # ebs_network = NdexGraph(cx=network.to_cx())
 
         # layouts.apply_directed_flow_layout(ebs_network, node_width=25, use_degree_edge_weights=True, iterations=200)
-
+        self._apply_spring_layout(network)
         # ebs_network.subnetwork_id = 1
         # ebs_network.view_id = 1
 
         network_update_key = self._net_summaries.get(network.get_name().upper())
 
-        network.apply_template(self._server, self._template,
-                               username=self._user, password=self._pass)
+        # apply style to network
+        network.apply_style_from_network(self._template)
 
         # set the version in the network
         self._set_version_in_network_attributes(network_update_key, network)
@@ -1010,10 +1059,12 @@ class NDExNciPidLoader(object):
         :param network:
         :return:
         """
-        network_properties = self._get_network_properties(self._template)
-        for k, v in network_properties.items():
-            if k.upper() in ['ORGANISM', 'DESCRIPTION']:
-                network.set_network_attribute(k, v)
+        description = self._template.get_network_attribute('Description')
+        if description is not None:
+            network.set_network_attribute('Description', description)
+        organism = self._template.get_network_attribute('organism')
+        if organism is not None:
+            network.set_network_attribute('organism', organism)
 
     def _set_version_in_network_attributes(self, network_update_key, network):
         """
@@ -1061,6 +1112,7 @@ class NDExNciPidLoader(object):
         self._load_network_summaries_for_user()
         self._parse_load_plan()
         self._load_network_attributes()
+        self._load_style_template()
 
         file_reverse = sorted(os.listdir(self._args.sifdir),
                               key=lambda s: s.lower(), reverse=True)
@@ -1207,7 +1259,6 @@ def main(args):
     {user} = <NDEx username>
     {password} = <NDEx password>
     {server} = <NDEx server(omit http) ie public.ndexbio.org>
-    {style} = <NDEx UUID of network to use for styling networks created>
 
     Example:
          
@@ -1216,7 +1267,6 @@ def main(args):
      {user} = joe123
      {password} = somepassword123
      {server} = dev.ndexbio.org
-     {style} = 86f63bf8-1b48-11e9-a05d-525400c25d22
      
      The sif files can be obtained from the anonymouse ftp site: 
      ftp.ndexbio.org 
@@ -1237,7 +1287,6 @@ def main(args):
                user=NDExUtilConfig.USER,
                password=NDExUtilConfig.PASSWORD,
                server=NDExUtilConfig.SERVER,
-               style=NDExNciPidLoader.STYLE,
                version=ndexncipidloader.__version__)
     theargs = _parse_arguments(desc, args[1:])
     theargs.program = args[0]

@@ -67,13 +67,7 @@ The default path for this configuration is :code:`~/.ndexutils.conf` but can be 
     user = <NDEx username>
     password = <NDEx password>
     server = <NDEx server(omit http) ie public.ndexbio.org>
-    style = <NDEx UUID of network to use for styling networks created>
 
-
-The NDEx UUID needed for **style** can be obtained by uploading the :code:`style.cx` file found under
-the :code:`data/` directory of this repository. NOTE: The network needs to be uploaded to the same
-server as defined in **style** :code:`public.ndexbio.org` is NDEx_ production. Also the network needs
-to be visible to the **user**
 
 **Example configuration file**
 
@@ -84,7 +78,6 @@ to be visible to the **user**
     user = joe123
     password = somepassword123
     server = dev.ndexbio.org
-    style = 86f63bf8-1b48-11e9-a05d-525400c25d22
 
 
 Needed files
@@ -109,11 +102,13 @@ Several steps of processing are needed to generate the SIF files.
              "chemDb=chebi,pubchem" -useNameIfNoId -extended
 
 
-Files for :code:`--genesymbol, --networkattrib, --loadplan` flags can be found under the **data/** subdirectory
+Files for :code:`--genesymbol, --networkattrib, --style, --loadplan` flags can be found under the **data/** subdirectory
 of this repository.
 
 * **netattrib.tsv** appears to be a tab delimited export of `this excel file <https://github.com/NCIP/pathway-interaction-database/blob/master/download/NCI-Pathway-Info.xlsx>`_
 * **gene_symbol_mapping.json** appears to have come from a previous run of ncipid processing with `this script <https://github.com/ndexbio/ndexutils/blob/master/ndexutil/ebs/ebs2cx.py>`_
+* **style.cx** Original style to use
+* **normalizedstyle.cx** Newer normalized style
 
 Usage
 -----
@@ -127,7 +122,7 @@ current working directory and the SIF files are in the :code:`sif/` directory
 
 .. code-block::
 
-   loadncipidloader.py --genesymbol gene_symbol_mapping.json --loadplan loadplan.json --networkattrib netattrib.tsv <sif dir>
+   loadncipidloader.py --genesymbol gene_symbol_mapping.json --style style.cx --loadplan loadplan.json --networkattrib netattrib.tsv <sif dir>
 
 
 Via Docker
@@ -141,7 +136,7 @@ file has been created in current working directory and named :code:`conf`
 
 .. code-block::
 
-   docker run -v `pwd`:`pwd` -w `pwd` coleslawndex/ndexncipidloader:0.1.0 loadndexncipidloader.py --conf conf --genesymbol gene_symbol_mapping.json --loadplan loadplan.json --networkattrib netattrib.tsv sif
+   docker run -v `pwd`:`pwd` -w `pwd` coleslawndex/ndexncipidloader:0.1.0 loadndexncipidloader.py --conf conf --genesymbol gene_symbol_mapping.json --style style.cx --loadplan loadplan.json --networkattrib netattrib.tsv sif
 
 
 Credits

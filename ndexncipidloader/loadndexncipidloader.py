@@ -598,7 +598,7 @@ class NDExNciPidLoader(object):
         edge_fields = []
         node_fields = []
         for index in range(len(lines)):
-            line = lines[index]
+            line = self._normalize_context_prefixes(lines[index])
             if index is 0:
                 edge_fields = [h.strip() for h in line.split('\t')]
             elif line == '\n':
@@ -627,6 +627,14 @@ class NDExNciPidLoader(object):
         df_with_a_b['PARTICIPANT_A'] = df_with_a_b['PARTICIPANT_A'].map(lambda x: x.lstrip('[').rstrip(']'))
         df_with_a_b['PARTICIPANT_B'] = df_with_a_b['PARTICIPANT_B'].map(lambda x: x.lstrip('[').rstrip(']'))
         return df_with_a_b, node_lines, node_fields
+
+    def _normalize_context_prefixes(self, theline):
+        """this function replaces any references of uniprot knowledgebase: with uniprot: and
+        kegg compound: with kegg.compound: to adhere to new normalization conventions
+        """
+        return theline.replace('uniprot knowledgebase:',
+                               'uniprot:').replace('kegg compound:',
+                                                   'kegg.compound').replace('UniProt:', 'uniprot:')
 
     def _replace_uniprot_with_gene_name_and_set_represents(self, network):
         """
@@ -944,6 +952,7 @@ class NDExNciPidLoader(object):
         df, node_lines, node_fields = self._get_pandas_dataframe(file_name)
         if df is None:
             return
+
         network = t2n.convert_pandas_to_nice_cx_with_load_plan(df, self._loadplan)
 
         network.set_name(file_name.replace('.sif', ''))

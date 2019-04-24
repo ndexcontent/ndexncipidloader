@@ -916,7 +916,7 @@ class NDExNciPidLoader(object):
         :return:
         """
         num_nodes = len(network.get_nodes())
-        my_networkx = network.to_networkx()
+        my_networkx = network.to_networkx(mode='default')
         for edgetuple in my_networkx.edges(data=True):
             edgetuple[2]['weight'] = 1.0
             if 'interaction' in edgetuple[2]:
@@ -1068,12 +1068,12 @@ class NDExNciPidLoader(object):
         :param network:
         :return:
         """
-        description = self._template.get_network_attribute('Description')
+        description = self._template.get_network_attribute('description')
         if description is not None:
-            network.set_network_attribute('Description', description)
+            network.set_network_attribute('description', description['v'])
         organism = self._template.get_network_attribute('organism')
         if organism is not None:
-            network.set_network_attribute('organism', organism)
+            network.set_network_attribute('organism', organism['v'])
 
     def _set_version_in_network_attributes(self, network_update_key, network):
         """

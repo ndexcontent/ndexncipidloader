@@ -16,8 +16,7 @@ NDEx NCI-PID content loader
 
 Python application that loads NCI-PID data into NDEx_
 
-This tool parses tab delimited files that can be downloaded from an NDEx ftp site (see Needed Files below)
-to generate the networks.
+This tool parses
 
 
 Tools

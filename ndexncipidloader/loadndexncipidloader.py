@@ -94,37 +94,45 @@ def _parse_arguments(desc, args):
     parser.add_argument('--conf', help='Configuration file to load '
                                        '(default ~/' +
                                        NDExUtilConfig.CONFIG_FILE)
-    parser.add_argument('--genesymbol', help='Path to gene symbol mapping json file')
-    parser.add_argument('--loadplan', help='Load plan json file', required=True)
-    parser.add_argument('--networkattrib', help='Tab delimited file containing '
-                                                'PID Pathway Name, reviewed by, '
-                                                'curated by and revision data '
-                                                'for ncipid networks', required=True)
-    parser.add_argument('--style', help='Path to NDEx CX file to use for styling'
-                                        'networks', required=True)
+    parser.add_argument('--genesymbol',
+                        help='Path to gene symbol mapping json file')
+    parser.add_argument('--loadplan', help='Load plan json file',
+                        required=True)
+    parser.add_argument('--networkattrib',
+                        help='Tab delimited file containing '
+                             'PID Pathway Name, reviewed by, '
+                             'curated by and revision data '
+                             'for ncipid networks', required=True)
+    parser.add_argument('--style',
+                        help='Path to NDEx CX file to use for styling'
+                             'networks', required=True)
     parser.add_argument('--releaseversion',
                         help='Sets version network attribute '
                              '(default FEB-2019)', default='FEB-2019')
-    parser.add_argument('--singlefile', help='Only process file matching name in '
-                                             '<sifdir>',
-                        default=None)
-    parser.add_argument('--paxtools', help='Path to paxtools.jar file used to convert'
-                                           'owl file to sif file. Only used if'
-                                           '--download flag is set')
+    parser.add_argument('--singlefile',
+                        help='Only process file matching name in '
+                             '<sifdir>', default=None)
+    parser.add_argument('--paxtools',
+                        help='Path to paxtools.jar file used to convert'
+                             'owl file to sif file. Only used if '
+                             '--download flag is set')
     parser.add_argument('--download', action='store_true',
                         help='If set, files from ftp directory'
                         'set in --ftpurl will be downloaded'
                         'and if needed owl files are converted to sif files'
                         'by paxtools set with --paxtools jar')
-    parser.add_argument('--ftphost', help='FTP host to download owl or sif files from '
-                                          'only needed if --download flag set '
-                                          '(default ' + DEFAULT_FTP_HOST + ')',
+    parser.add_argument('--ftphost',
+                        help='FTP host to download owl or sif files from '
+                             'only needed if --download flag set '
+                             '(default ' + DEFAULT_FTP_HOST + ')',
                         default=DEFAULT_FTP_HOST)
-    parser.add_argument('--ftpdir', help='FTP directory to download owl or sif files from '
-                                         'only needed if --download flag set '
-                                         '(default ' + DEFAULT_FTP_DIR + ')',
+    parser.add_argument('--ftpdir',
+                        help='FTP directory to download owl or sif files from '
+                             'only needed if --download flag set '
+                             '(default ' + DEFAULT_FTP_DIR + ')',
                         default=DEFAULT_FTP_DIR)
-    parser.add_argument('sifdir', help='Directory containing .sif files to parse')
+    parser.add_argument('sifdir',
+                        help='Directory containing .sif files to parse')
     parser.add_argument('--verbose', '-v', action='count', default=0,
                         help='Increases verbosity of logger to standard '
                              'error for log messages in this module and '
@@ -162,7 +170,7 @@ def _setup_logging(args):
 
 class GeneSymbolSearcher(object):
     """
-    Wrapper around biothings_client to query
+    Wrapper around :py:mod:`biothings_client` to query
     """
     def __init__(self,
                  bclient=get_client('gene')):
@@ -174,10 +182,13 @@ class GeneSymbolSearcher(object):
 
     def get_symbol(self, val):
         """
-        Queries biothings_client with val to find
+        Queries biothings_client with 'val' to find
         hit
-        :param val:
-        :return:
+
+        :param val: id to send to :py:mod:`biothings_client`
+        :type val: string
+        :return: gene symbol or None
+        :rtype: string
         """
         cache_symbol = self._cache.get(val)
         if cache_symbol is not None:
@@ -381,6 +392,13 @@ class NDExNciPidLoader(object):
                  nodenameupdater=UniProtToGeneSymbolUpdater()):
         """
         Constructor
+
+        :param args: list of arguments passed in via the command line
+        :type args: list
+        :param netattribfac: network attributes factory object
+        :type netattribfac: :py:class:`NetworkAttributesFromTSVFactory`
+        :param nodenameupdater: class that updates node names with gene symbol
+        :type nodenameupdater: :py:class:`UniProtToGeneSymbolUpdater`
         """
         self._args = args
         self._user = None
@@ -398,8 +416,13 @@ class NDExNciPidLoader(object):
 
     def _parse_config(self):
         """
-        Parses config
-        :return:
+        Parses config extracting the following fields:
+
+        :py:const:`~ndexutil.config.NDExUtilConfig.USER`
+        :py:const:`~ndexutil.config.NDExUtilConfig.PASSWORD`
+        :py:const:`~ndexutil.config.NDExUtilConfig.SERVER`
+
+        :return: None
         """
         ncon = NDExUtilConfig(conf_file=self._args.conf)
         con = ncon.get_config()
@@ -930,14 +953,14 @@ class NDExNciPidLoader(object):
                 else:
                     edgetuple[2]['weight'] = 2.0
             if edgetuple[2]['directed'] is True:
-                edgetuple[2]['weight'] += 5000.0
+                edgetuple[2]['weight'] += 4.0
             logger.info('Updated edge: ' + str(edgetuple))
 
         for edgetuple in my_networkx.edges(data=True):
             logger.info('Checking: ' + str(edgetuple))
 
         my_networkx.pos = nx.drawing.spring_layout(my_networkx, k=float(float(num_nodes)), scale=num_nodes*50,
-                                                   iterations=1, weight='weight')
+                                                   iterations=200, weight='weight')
         cartesian_aspect = self._cartesian(my_networkx)
         network.set_opaque_aspect("cartesianLayout", cartesian_aspect)
 
@@ -1008,12 +1031,7 @@ class NDExNciPidLoader(object):
                                            type='string',
                                            overwrite=True)
 
-        # ebs_network = NdexGraph(cx=network.to_cx())
-
-        # layouts.apply_directed_flow_layout(ebs_network, node_width=25, use_degree_edge_weights=True, iterations=200)
         self._apply_spring_layout(network)
-        # ebs_network.subnetwork_id = 1
-        # ebs_network.view_id = 1
 
         network_update_key = self._net_summaries.get(network.get_name().upper())
 
@@ -1095,8 +1113,9 @@ class NDExNciPidLoader(object):
 
     def _get_user_agent(self):
         """
-
-        :return:
+        Builds user agent string
+        :return: user agent string in form of ncipid/<version of this tool>
+        :rtype: string
         """
         return 'ncipid/' + self._args.version
 
@@ -1126,10 +1145,7 @@ class NDExNciPidLoader(object):
         file_reverse = sorted(os.listdir(self._args.sifdir),
                               key=lambda s: s.lower(), reverse=True)
 
-        for file in file_reverse:  # listdir(path_to_sif_files):
-            # if 'PathwayCommons.8.NCI_PID.BIOPAX.sif' in file:
-            # if not file.startswith('Visual signal transduction Rods.sif'):
-            #    continue
+        for file in file_reverse:
             if self._args.singlefile is not None:
                 if self._args.singlefile != os.path.basename(file):
                     continue
@@ -1142,17 +1158,33 @@ class NDExNciPidLoader(object):
 
 
 class PaxtoolsRunner(object):
-    """Runs paxtools.jar to convert .owl files to .sif"""
+    """
+    Runs paxtools.jar to convert .owl files to .sif
+    """
 
-    def __init__(self, ftpdir, outdir, paxtools):
-        """Constructor"""
+    def __init__(self, ftpdir, outdir, paxtools,
+                 java='java'):
+        """
+        Constructor
+
+        :param ftpdir: directory containing owl files
+        :type ftpdir: string
+        :param outdir: Directory to write .sif files
+        :type outdir: string
+        :param paxtools: Path to paxtools.jar jar file
+        :type paxtools: string
+        :param java: Path to Java binary
+        :type java: string
+        """
         self._ftpdir = ftpdir
         self._outdir = outdir
         self._paxtools = paxtools
+        self._java = java
 
     def run_paxtools(self):
-        """Runs paxtools on .owl files in ftp directory writing
-        them to outdir
+        """Runs paxtools on .owl files in ftp directory set in
+        constructor. The output SIF files are written to
+        the 'outdir' also set in the constructor.
         """
         counter = 0
         logger.info('Running ' + self._paxtools + ' on .owl files in ' + self._ftpdir)
@@ -1169,12 +1201,20 @@ class PaxtoolsRunner(object):
 
     def _run_paxtool(self, owlfile, siffile):
         """
-        Runs paxtools
-        :param owlfile:
-        :param siffile:
-        :return:
+        Runs paxtools to convert the owl file to SIF using these arguments:
+
+        java -jar toSIF <owlfile> <sif file>
+        seqDb=hgnc,uniprot,refseq,ncbi,entrez,ensembl
+        chemDb=chebi,pubchem
+        -useNameIfNoId -extended
+
+        :param owlfile: Input owl file
+        :type owlfile: string
+        :param siffile: Output sif file
+        :type siffile: string
+        :return: None
         """
-        cmd = ['java', '-jar',
+        cmd = [self._java, '-jar',
                self._paxtools, 'toSIF', owlfile, siffile,
                'seqDb=hgnc,uniprot,refseq,ncbi,entrez,ensembl', 'chemDb=chebi,pubchem',
                '-useNameIfNoId', '-extended']
@@ -1185,13 +1225,33 @@ class PaxtoolsRunner(object):
 
 
 class FtpDataDownloader(object):
-    """Downloads owl files from ftp site"""
+    """
+    Downloads OWL files (.gz files are automatically uncompressed) from
+    FTP site.
+    """
+
     def __init__(self, outdir, ftphost=DEFAULT_FTP_HOST,
                  ftpdir=DEFAULT_FTP_DIR,
                  ftpuser=DEFAULT_FTP_USER,
                  ftppass=DEFAULT_FTP_PASS,
                  timeout=10):
-        """Constructor"""
+        """
+        Constructor that sets parameters needed to download OWL
+        files
+
+        :param outdir: Directory to store downloaded data files
+        :type outdir: string
+        :param ftphost: FTP host containing OWL files
+        :type ftphost: string
+        :param ftpdir: Directory on FTP host where OWL files reside
+        :type ftpdir: string
+        :param ftpuser: FTP user
+        :type ftpuser: string
+        :param ftppass: FTP password
+        :type ftppass: string
+        :param timeout: timeout in seconds for FTP connection
+        :type timeout: int
+        """
         self._ftphost = ftphost
         self._ftpdir = ftpdir
         self._ftpuser = ftpuser
@@ -1202,11 +1262,15 @@ class FtpDataDownloader(object):
         self._ftp = None
 
     def set_alternate_ftp(self, altftp):
-        """Sets alternate ftp connection"""
+        """
+        Sets alternate ftp connection
+        """
         self._altftp = altftp
 
     def connect_to_ftp(self):
-        """Connects to ftp server"""
+        """
+        Connects to ftp server
+        """
         if self._altftp is not None:
             self._ftp = self._altftp
             return
@@ -1215,23 +1279,44 @@ class FtpDataDownloader(object):
         return
 
     def disconnect(self):
+        """
+        Disconnects from FTP
+        :return:
+        """
         if self._ftp is not None:
             self._ftp.close()
 
     def download_data(self):
-        """Downloads data from ftp"""
+        """
+        Creates output directory set in constructor and then proceeds
+        to download all files in ftp directory also set in constructor.
+
+        If the downloaded file ends with *.gz* extension it is gunzipped
+        first and the suffix is removed.
+
+        .. note::
+
+        If a file already exists on the file system (regardless of size)
+        this code does NOT download that file again.
+
+        :return: None
+        """
         if not os.path.isdir(self._outdir):
             os.makedirs(self._outdir, mode=0o755)
         filelist = self._ftp.list(self._ftpdir)
         if filelist is None:
             logger.error('No files found in ftp directory')
             return
-        logger.info('Found ' + str(len(filelist)) + ' files in ftp directory. Starting download')
+        logger.info('Found ' + str(len(filelist)) +
+                    ' files in ftp directory. Starting download')
         counter = 0
         for entry in filelist:
-            destfile = re.sub('\.gz', '', os.path.join(self._outdir, os.path.basename(entry)))
+            destfile = re.sub('\\.gz', '',
+                              os.path.join(self._outdir,
+                                           os.path.basename(entry)))
             if os.path.isfile(destfile) and os.path.getsize(destfile) > 0:
-                logger.debug(entry + ' appears to have been downloaded. Skipping...')
+                logger.debug(entry +
+                             ' appears to have been downloaded. Skipping...')
                 continue
             logger.debug('Downloading ' + entry + ' to ' + destfile)
             if entry.endswith('.gz'):
@@ -1248,14 +1333,19 @@ class FtpDataDownloader(object):
 def main(args):
     """
     Main entry point for program
-    :param args:
-    :return:
+
+    :param args: command line arguments usually :py:const:`sys.argv`
+    :return: 0 for success otherwise failure
+    :rtype: int
     """
     desc = """
     Version {version}
 
     Loads NDEx NCI-PID content loader data into NDEx (http://ndexbio.org)
-    using SIF files as input.
+    using SIF files as input. This tool includes flags to download
+    OWL files (via --download) from an FTP site and convert them
+    to SIF files. For more information see below.
+     
     
     To connect to NDEx server a configuration file must be passed
     into --conf parameter. If --conf is unset the configuration 
@@ -1277,26 +1367,36 @@ def main(args):
      {password} = somepassword123
      {server} = dev.ndexbio.org
      
-     The sif files can be obtained from the anonymouse ftp site: 
-     ftp.ndexbio.org 
+     The OWL files can be obtained from the anonymous ftp site: 
+     currently located here, but this may change:
      
-     Currently located here, but this may change: 
-     ftp://ftp.ndexbio.org/NCI_PID_EXTENDED_BINARY_SIF_2016-06-09-PC2v8 API/
+     ftp://{ftphost}/{ftpdir}
      
-     As for the style NDExUUID, there is a style.cx located in this directory:
-     https://github.com/coleslaw481/ndexncipidloader/tree/master/data
+     As for the style NDExUUID, there is a normalizedstyle.cx located in 
+     this directory:
+     https://github.com/ndexcontent/ndexncipidloader/tree/master/data
      
      which can be uploaded to NDEx to get a UUID. The network needs to
      be put on the same server set in the {server} field and visible
      to the account in {user} field.
      
-     For more information about the transformations being performed
-     visit: https://github.com/coleslaw481/ndexncipidloader
+    Example usage:
+    
+    loadncipidloader.py --genesymbol gene_symbol_mapping.json \\ 
+                        --loadplan loadplan.json \\
+                        --profile ncipid_dev \\
+                        --networkattrib netattrib.tsv \\
+                        --style normalizedstyle.cx --download tmpdatadir
+
+    For more information about the transformations being performed
+    visit: https://github.com/ndexcontent/ndexncipidloader
     """.format(confname=NDExUtilConfig.CONFIG_FILE,
                user=NDExUtilConfig.USER,
                password=NDExUtilConfig.PASSWORD,
                server=NDExUtilConfig.SERVER,
-               version=ndexncipidloader.__version__)
+               version=ndexncipidloader.__version__,
+               ftphost=DEFAULT_FTP_HOST,
+               ftpdir=DEFAULT_FTP_DIR)
     theargs = _parse_arguments(desc, args[1:])
     theargs.program = args[0]
     theargs.version = ndexncipidloader.__version__
@@ -1312,6 +1412,7 @@ def main(args):
             dloader.connect_to_ftp()
             dloader.download_data()
             dloader.disconnect()
+            logger.info('Converting owl files to sif, if needed')
             paxy = PaxtoolsRunner(ftpdir, outdir, paxtools)
             paxy.run_paxtools()
 

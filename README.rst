@@ -22,7 +22,7 @@ This tool parses
 Tools
 -----
 
-* **loadndexncipidloader.py** -- Loads NCI-PID networks from SIF files to NDEx_
+* **loadndexncipidloader.py** -- Loads NCI-PID networks from OWL or SIF files to NDEx_
 
 Dependencies
 ------------

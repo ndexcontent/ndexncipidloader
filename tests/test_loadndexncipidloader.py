@@ -26,11 +26,7 @@ class TestNdexncipidloader(unittest.TestCase):
     def test_parse_arguments(self):
         """Tests parse arguments"""
         res = loadndexncipidloader._parse_arguments('hi',
-                                                    ['--loadplan', 'plan',
-                                                     '--networkattrib',
-                                                     'net',
-                                                     '--style', 'style',
-                                                     'foo'])
+                                                    ['foo'])
 
         self.assertEqual(res.profile, 'ndexncipidloader')
         self.assertEqual(res.verbose, 0)
@@ -184,12 +180,8 @@ format=%(asctime)s %(name)-12s %(levelname)-8s %(message)s""")
             self.assertEqual(fac.get_network_attributes_obj(), None)
 
             temp_dir = tempfile.mkdtemp()
-            tsvfile = os.path.join(temp_dir, 'net.tsv')
-            with open(tsvfile, 'w') as f:
-                f.write("""PID,Pathway Name,Corrected Pathway Name,Reviewed By,Curated By,Revision Date
-a4b7_pathway,a4b7 Integrin signaling,,"David Rose, Francisco Sanchez-Madrid, Maria Mittelbrunn",Shiva Krupa,18-Sep-10
-a6b1_a6b4_integrin_pathway,a6b1 and a6b4 Integrin signaling,,"Arthur Mercurio,",Shiva Krupa,9-Mar-09""")
-            fac = NetworkAttributesFromTSVFactory(tsvfile, delim=',')
+            tsvfile = loadndexncipidloader.get_networkattributes()
+            fac = NetworkAttributesFromTSVFactory(tsvfile, delim='\t')
             na = fac.get_network_attributes_obj()
             self.assertEqual(na.get_labels('a4b7 Integrin signaling'),
                              'a4b7_pathway')
@@ -197,8 +189,5 @@ a6b1_a6b4_integrin_pathway,a6b1 and a6b4 Integrin signaling,,"Arthur Mercurio,",
                              'David Rose, Francisco Sanchez-Madrid, Maria Mittelbrunn')
             self.assertEqual(na.get_author('a4b7 Integrin signaling'),
                              'Shiva Krupa')
-
-
-
         finally:
             shutil.rmtree(temp_dir)

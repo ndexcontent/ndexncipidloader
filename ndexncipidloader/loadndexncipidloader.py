@@ -273,6 +273,10 @@ class GeneSymbolSearcher(object):
         :return: gene symbol or None
         :rtype: string
         """
+        if val is None:
+            logger.error('None passed in')
+            return None
+
         cache_symbol = self._cache.get(val)
         if cache_symbol is not None:
             return cache_symbol
@@ -285,7 +289,6 @@ class GeneSymbolSearcher(object):
         if res['total'] == 0:
             logger.debug('Got No hits back from query for: ' + val)
             return None
-
         if len(res['hits']) > 0:
             logger.debug('Got a hit from query for: ' + val)
 

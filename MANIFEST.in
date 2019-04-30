@@ -3,6 +3,11 @@ include CONTRIBUTING.rst
 include HISTORY.rst
 include LICENSE
 include README.rst
+include ndexncipidloader/loadplan.json
+include ndexncipidloader/style.cx
+include ndexncipidloader/networkattributes.tsv
+include ndexncipidloader/gene_symbol_mapping.json
+
 
 recursive-include tests *
 recursive-exclude * __pycache__

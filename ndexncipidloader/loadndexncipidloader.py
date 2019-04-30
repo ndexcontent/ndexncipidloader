@@ -14,6 +14,7 @@ import pandas as pd
 import requests
 import gzip
 import re
+from datetime import datetime
 
 from ftpretty import ftpretty
 from biothings_client import get_client
@@ -55,12 +56,83 @@ CONTROL_INTERACTIONS = ["controls-state-change-of",
                         "controls-expression-of"
                         ]
 
-DEFAULT_FTP_HOST='ftp.ndexbio.org'
-DEFAULT_FTP_DIR='NCI_PID_BIOPAX_2016-06-08-PC2v8-API'
-DEFAULT_FTP_USER='anonymous'
-DEFAULT_FTP_PASS='anonymous'
+DEFAULT_FTP_HOST = 'ftp.ndexbio.org'
+DEFAULT_FTP_DIR = 'NCI_PID_BIOPAX_2016-06-08-PC2v8-API'
+DEFAULT_FTP_USER = 'anonymous'
+DEFAULT_FTP_PASS = 'anonymous'
 FTP_SUBDIR = 'ftp'
 
+LOAD_PLAN = 'loadplan.json'
+"""
+Name of file containing json load plan
+stored within this package
+"""
+
+NET_ATTRIBS = 'networkattributes.tsv'
+"""
+Name of file containing network attributes
+stored within this package
+"""
+
+STYLE = 'style.cx'
+"""
+Name of file containing CX with style
+stored within this package
+"""
+
+GENE_SYMBOL_MAPPING = 'gene_symbol_mapping.json'
+"""
+Name of file containing json of gene to symbol mapping
+stored within this package
+"""
+
+
+def get_package_dir():
+    """
+    Gets directory where package is installed
+    :return:
+    """
+    return os.path.dirname(ndexncipidloader.__file__)
+
+
+def get_load_plan():
+    """
+    Gets the load plan stored with this package
+
+    :return: path to file
+    :rtype: string
+    """
+    return os.path.join(get_package_dir(), LOAD_PLAN)
+
+
+def get_networkattributes():
+    """
+    Gets the network attributes stored with this package
+
+    :return: path to file
+    :rtype: string
+    """
+    return os.path.join(get_package_dir(), NET_ATTRIBS)
+
+
+def get_style():
+    """
+    Gets the style stored with this package
+
+    :return: path to file
+    :rtype: string
+    """
+    return os.path.join(get_package_dir(), STYLE)
+
+
+def get_gene_symbol_mapping():
+    """
+    Gets the gene symbol mapping with this package
+
+    :return: path to file
+    :rtype: string
+    """
+    return os.path.join(get_package_dir(), GENE_SYMBOL_MAPPING)
 
 def _parse_arguments(desc, args):
     """
@@ -95,32 +167,38 @@ def _parse_arguments(desc, args):
                                        '(default ~/' +
                                        NDExUtilConfig.CONFIG_FILE)
     parser.add_argument('--genesymbol',
-                        help='Path to gene symbol mapping json file')
-    parser.add_argument('--loadplan', help='Load plan json file',
-                        required=True)
+                        help='Use alternate gene symbol mapping file',
+                        default=get_gene_symbol_mapping())
+    parser.add_argument('--loadplan', help='Use alternate load plan file',
+                        default=get_load_plan())
     parser.add_argument('--networkattrib',
-                        help='Tab delimited file containing '
+                        help='Use alternate Tab delimited file containing '
                              'PID Pathway Name, reviewed by, '
                              'curated by and revision data '
-                             'for ncipid networks', required=True)
+                             'for ncipid networks',
+                        default=get_networkattributes())
     parser.add_argument('--style',
                         help='Path to NDEx CX file to use for styling'
-                             'networks', required=True)
+                             'networks',
+                        default=get_style())
+    rel_ver = datetime.now().strftime('%b-%Y').upper()
     parser.add_argument('--releaseversion',
                         help='Sets version network attribute '
-                             '(default FEB-2019)', default='FEB-2019')
+                             '(default current month and year Example: ' +
+                             rel_ver + ')', default=rel_ver)
     parser.add_argument('--singlefile',
                         help='Only process file matching name in '
                              '<sifdir>', default=None)
     parser.add_argument('--paxtools',
                         help='Path to paxtools.jar file used to convert'
                              'owl file to sif file. Only used if '
-                             '--download flag is set')
+                             '--download flag is set. Default assumes'
+                             'paxtools.jar is in current working directory')
     parser.add_argument('--download', action='store_true',
                         help='If set, files from ftp directory'
-                        'set in --ftpurl will be downloaded'
-                        'and if needed owl files are converted to sif files'
-                        'by paxtools set with --paxtools jar')
+                             'set in --ftpurl will be downloaded'
+                             'and if needed owl files are converted to sif files'
+                             'by paxtools set with --paxtools jar')
     parser.add_argument('--ftphost',
                         help='FTP host to download owl or sif files from '
                              'only needed if --download flag set '
@@ -132,15 +210,19 @@ def _parse_arguments(desc, args):
                              '(default ' + DEFAULT_FTP_DIR + ')',
                         default=DEFAULT_FTP_DIR)
     parser.add_argument('sifdir',
-                        help='Directory containing .sif files to parse')
+                        help='Directory containing .sif files to parse, '
+                             'which will be downloaded and '
+                             'converted if --download '
+                             'flag is set, otherwise script assumes the'
+                             '*.sif files already exist')
     parser.add_argument('--verbose', '-v', action='count', default=0,
                         help='Increases verbosity of logger to standard '
                              'error for log messages in this module and '
                              'in ' + TSV2NICECXMODULE + '. Messages are '
-                             'output at these python logging levels '
-                             '-v = ERROR, -vv = WARNING, -vvv = INFO, '
-                             '-vvvv = DEBUG, -vvvvv = NOTSET (default is to '
-                             'log CRITICAL)')
+                                                        'output at these python logging levels '
+                                                        '-v = ERROR, -vv = WARNING, -vvv = INFO, '
+                                                        '-vvvv = DEBUG, -vvvvv = NOTSET (default is to '
+                                                        'log CRITICAL)')
     return parser.parse_args(args)
 
 
@@ -172,6 +254,7 @@ class GeneSymbolSearcher(object):
     """
     Wrapper around :py:mod:`biothings_client` to query
     """
+
     def __init__(self,
                  bclient=get_client('gene')):
         """
@@ -224,6 +307,7 @@ class UniProtToGeneSymbolUpdater(object):
     object then queries XXX for a gene symbol. If
     not found original name is left.
     """
+
     def __init__(self,
                  searcher=GeneSymbolSearcher()):
         """
@@ -460,8 +544,8 @@ class NDExNciPidLoader(object):
         """
         if not os.path.isfile(self._args.genesymbol):
             raise NDExNciPidLoaderError('Gene symbol mapping file ' +
-                                str(self._args.genesymbol) +
-                                ' does not exist')
+                                        str(self._args.genesymbol) +
+                                        ' does not exist')
 
         with open(self._args.genesymbol, 'r') as f:
             self._gene_symbol_map = json.load(f)
@@ -553,7 +637,7 @@ class NDExNciPidLoader(object):
             participant_name = v['n']
             logger.debug('node names: ' + participant_name)
             if participant_name is not None and '_HUMAN' in participant_name and self._gene_symbol_map.get(
-                    participant_name) is None:
+                participant_name) is None:
                 id_list.append(participant_name)
         if len(id_list) is 0:
             return
@@ -899,7 +983,7 @@ class NDExNciPidLoader(object):
         :return:
         """
         if participant_name is not None and '_HUMAN' in participant_name and self._gene_symbol_map.get(
-                participant_name) is not None:
+            participant_name) is not None:
             gene_symbol_mapped_name = self._gene_symbol_map.get(participant_name)
             if len(gene_symbol_mapped_name) > 25:
                 clean_symbol = gene_symbol_mapped_name.split('/')[0]
@@ -959,7 +1043,7 @@ class NDExNciPidLoader(object):
         for edgetuple in my_networkx.edges(data=True):
             logger.info('Checking: ' + str(edgetuple))
 
-        my_networkx.pos = nx.drawing.spring_layout(my_networkx, k=float(float(num_nodes)), scale=num_nodes*50,
+        my_networkx.pos = nx.drawing.spring_layout(my_networkx, k=float(float(num_nodes)), scale=num_nodes * 50,
                                                    iterations=200, weight='weight')
         cartesian_aspect = self._cartesian(my_networkx)
         network.set_opaque_aspect("cartesianLayout", cartesian_aspect)
@@ -1341,52 +1425,37 @@ def main(args):
     desc = """
     Version {version}
 
-    Loads NDEx NCI-PID content loader data into NDEx (http://ndexbio.org)
+    Loads NDEx NCI-PID content data into NDEx (http://ndexbio.org)
     using SIF files as input. This tool includes flags to download
-    OWL files (via --download) from an FTP site and convert them
-    to SIF files. For more information see below.
-     
+    OWL files (via --download) from an FTP site (default {ftphost} under
+    {ftpdir} directory) and convert them to SIF files using the 
+    paxtools.jar program residing in a directory set via --paxtools flag.      
     
-    To connect to NDEx server a configuration file must be passed
-    into --conf parameter. If --conf is unset the configuration 
-    the path ~/{confname} is examined. 
+    In order for this tool to upload data to NDEx, a configuration file 
+    must either reside here ~/{confname} or be set via --conf parameter. 
          
     The configuration file should be formatted as follows:
          
-    [<value in --profile (default ndexncipidloader)>]
+    [<value of --profile flag (default ndexncipidloader)>]
          
     {user} = <NDEx username>
     {password} = <NDEx password>
     {server} = <NDEx server(omit http) ie public.ndexbio.org>
 
-    Example:
+    Example configuration file:
          
-     [ncipid_dev]
+     [ndexncipidloader]
      
      {user} = joe123
      {password} = somepassword123
      {server} = dev.ndexbio.org
-     
-     The OWL files can be obtained from the anonymous ftp site: 
-     currently located here, but this may change:
-     
-     ftp://{ftphost}/{ftpdir}
-     
-     As for the style NDExUUID, there is a normalizedstyle.cx located in 
-     this directory:
-     https://github.com/ndexcontent/ndexncipidloader/tree/master/data
-     
-     which can be uploaded to NDEx to get a UUID. The network needs to
-     be put on the same server set in the {server} field and visible
-     to the account in {user} field.
-     
+    
     Example usage:
     
-    loadncipidloader.py --genesymbol gene_symbol_mapping.json \\ 
-                        --loadplan loadplan.json \\
-                        --profile ncipid_dev \\
-                        --networkattrib netattrib.tsv \\
-                        --style normalizedstyle.cx --download tmpdatadir
+    loadncipidloader.py --download tmpdatadir/
+    
+    The above example uses the default ftp server and assumes
+    paxtools.jar is in the current working directory.
 
     For more information about the transformations being performed
     visit: https://github.com/ndexcontent/ndexncipidloader

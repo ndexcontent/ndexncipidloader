@@ -101,13 +101,12 @@ Several steps of processing are needed to generate the SIF files.
              "chemDb=chebi,pubchem" -useNameIfNoId -extended
 
 
-Files for :code:`--genesymbol, --networkattrib, --style, --loadplan` flags can be found under the **data/** subdirectory
+Files for :code:`--genesymbol, --networkattrib, --style, --loadplan` flags can be found in the **ndexncipidloader/** subdirectory
 of this repository.
 
-* **netattrib.tsv** appears to be a tab delimited export of `this excel file <https://github.com/NCIP/pathway-interaction-database/blob/master/download/NCI-Pathway-Info.xlsx>`_
+* **networkattributes.tsv** appears to be a tab delimited export of `this excel file <https://github.com/NCIP/pathway-interaction-database/blob/master/download/NCI-Pathway-Info.xlsx>`_
 * **gene_symbol_mapping.json** appears to have come from a previous run of ncipid processing with `this script <https://github.com/ndexbio/ndexutils/blob/master/ndexutil/ebs/ebs2cx.py>`_
-* **style.cx** Original style to use
-* **normalizedstyle.cx** Newer normalized style
+* **style.cx** normalized style to use
 
 Usage
 -----
@@ -116,12 +115,11 @@ For information invoke :code:`loadndexncipidloader.py -h`
 
 **Example usage**
 
-This example assumes a valid configuration file and needed files for :code:`--genesymbol, --networkattrib, --loadplan` are in the
-current working directory and the SIF files are in the :code:`sif/` directory
+This example assumes a valid configuration file and the SIF files are located in :code:`sif/` directory
 
 .. code-block::
 
-   loadncipidloader.py --genesymbol gene_symbol_mapping.json --style style.cx --loadplan loadplan.json --networkattrib netattrib.tsv <sif dir>
+   loadncipidloader.py sif
 
 
 Via Docker
@@ -129,13 +127,12 @@ Via Docker
 
 **Example usage**
 
-This example assumes files for :code:`--genesymbol, --networkattrib, --loadplan` are in the
-current working directory, SIF files are in the :code:`sif/` directory, and a configuration
+This example assumes files SIF files are in the :code:`sif/` directory, and a configuration
 file has been created in current working directory and named :code:`conf`
 
 .. code-block::
 
-   docker run -v `pwd`:`pwd` -w `pwd` coleslawndex/ndexncipidloader:0.1.0 loadndexncipidloader.py --conf conf --genesymbol gene_symbol_mapping.json --style style.cx --loadplan loadplan.json --networkattrib netattrib.tsv sif
+   docker run -v `pwd`:`pwd` -w `pwd` coleslawndex/ndexncipidloader:0.1.0 loadndexncipidloader.py --conf conf sif
 
 
 Credits

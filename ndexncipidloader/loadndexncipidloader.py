@@ -36,6 +36,7 @@ LOG_FORMAT = "%(asctime)-15s %(levelname)s %(relativeCreated)dms " \
 
 PARTICIPANT_TYPE_MAP = {
     'ProteinReference': 'protein',
+    'ProteinReference;RnaReference': 'protein',
     'SmallMoleculeReference': 'smallmolecule'
 }
 
@@ -818,56 +819,61 @@ class NDExNciPidLoader(object):
                                'uniprot:').replace('kegg compound:',
                                                    'kegg.compound').replace('UniProt:', 'uniprot:')
 
-    def _replace_uniprot_with_gene_name_and_set_represents(self, network):
+    def _set_type_for_nodes(self, network):
         """
+        Iterates through all nodes in network setting the 'type' node attribute
+        via values by using this dictionary: :py:const:`PARTICIPANT_TYPE_MAP`
+        to replace the existing 'type' node attribute value. If not found
+        a string entry is added to the list of issues returned to caller
 
-        :param network:
-        :return:
+        :param network: network to update
+        :type network: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
+        :return: list of issues
+        :rtype: list
         """
+        issues = []
         for k, v in network.get_nodes():
-            # ==============================================
-            # CONVERT NODE NAME FROM UNIPROT TO GENE SYMBOL
-            # ==============================================
-            logger.debug('Node: ' + str(v))
-            participant_name = v['n']
-            if '_HUMAN' in participant_name and self._node_mapping.get(participant_name) is not None:
-                v['r'] = self._node_mapping.get(participant_name)
-            elif len(participant_name) > 25:
-                v['r'] = (participant_name.split('/')[0])
+            node_type = network.get_node_attribute(k, 'type')
+            typeval = PARTICIPANT_TYPE_MAP.get(node_type['v'])
+            if typeval is None:
+                issues.append('unable to set type attribute for node: ' + str(v) + ' cause type is ' + node_type['v'])
+            else:
+                network.set_node_attribute(k, 'type', typeval,
+                                           overwrite=True)
 
+        return issues
+
+    def _set_represents_field_in_nodes(self, network):
+        """
+        Iterates through all nodes in network setting the represents ('r') field
+        of the node to the first element in the 'alias' node attribute list. If no
+        'alias' attribute is found then the represents ('r') is set to the name of
+        the node. If the 'alias' node attribute list only had that one element or if
+        its empty then its removed otherwise that first element is removed from the
+        'alias' node attribute list
+
+        :param network: network to update
+        :type network: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
+        :return: list of issues
+        :rtype: list
+        """
+        issues = []
+        for k, v in network.get_nodes():
             # =============================
             # SET REPRESENTS
             # =============================
             aliases = network.get_node_attribute(v, 'alias')
-            if aliases is not None and aliases['v'] != 'null' and len(aliases) > 0:
+            if aliases is not None and len(aliases['v']) > 0:
                 logger.debug('Aliases is: ' + str(aliases))
                 v['r'] = (aliases['v'][0])
+                if len(aliases['v']) > 1:
+                    network.set_node_attribute(k, 'alias', aliases['v'][1:], type=aliases['d'],
+                                               overwrite=True)
+                else:
+                    network.remove_node_attribute(k, 'alias')
             else:
                 v['r'] = v['n']
-                if aliases == 'null':
-                    network.remove_node_attribute(k, 'alias')
-
-            if aliases is not None and len(aliases) > 1:
-                replace_alias = network.get_node_attribute(k, 'alias')
-                logger.debug('replace_alias is: ' + str(replace_alias))
-                network.set_node_attribute(k, 'alias', aliases['v'][1:], type=replace_alias['d'],
-                                           overwrite=True)
-            else:
-                network.remove_node_attribute(k, 'alias')
-
-            node_type = network.get_node_attribute(k, 'type')
-            logger.debug('node_type: ' + str(node_type))
-            typeval = PARTICIPANT_TYPE_MAP.get(node_type['v'])
-            if typeval is None:
-                logger.error('node_type value [' + node_type['v'] + '] is not in ' + str(PARTICIPANT_TYPE_MAP) +
-                             ' seeing if type is part of value')
-                for entry in PARTICIPANT_TYPE_MAP.keys():
-                    if entry in node_type['v']:
-                        typeval = entry
-                        break
-            if typeval is not None:
-                network.set_node_attribute(k, 'type', typeval,
-                                           overwrite=True)
+        return issues
 
     def _get_edge_type_maps(self, network):
         """
@@ -1123,6 +1129,46 @@ class NDExNciPidLoader(object):
         cartesian_aspect = self._cartesian(my_networkx)
         network.set_opaque_aspect("cartesianLayout", cartesian_aspect)
 
+    def _another_node_name_update_wtf(self, network, node_lines, node_fields):
+        """
+
+        :param network:
+        :return:
+        """
+        node_table = []
+        node_reader = csv.DictReader(node_lines, fieldnames=node_fields, dialect='excel-tab')
+        for dict in node_reader:
+            node_table.append(dict)
+
+        # =======================
+        # PROCESS NODES
+        # =======================
+        for node_info in node_table:
+            node_to_update = network.get_node_by_name(node_info.get('PARTICIPANT').lstrip('[').rstrip(']'))
+
+            participant_name = self._update_node_name_if_chebi_and_get_participant_name(node_to_update,
+                                                                                        node_info)
+
+            self._set_alias_and_represents(network, node_to_update, node_info)
+
+            self._update_node_name_with_gene_symbol(node_to_update, participant_name)
+
+            typeval = PARTICIPANT_TYPE_MAP.get(node_info.get('PARTICIPANT_TYPE'))
+            if typeval is None:
+                logger.info('For network: ' + network.get_name() + ' ' +
+                            node_info.get('PARTICIPANT_TYPE') +
+                            ' not in ' + str(PARTICIPANT_TYPE_MAP) +
+                            ' trying to see if type is within value')
+                for entry in PARTICIPANT_TYPE_MAP.keys():
+                    if entry in node_info.get('PARTICIPANT_TYPE'):
+                        typeval = entry
+                        break
+            if typeval is not None:
+                network.set_node_attribute(node_to_update['@id'], 'type',
+                                           typeval,
+                                           type='string',
+                                           overwrite=True)
+
     def _process_sif(self, file_name):
         """
         Processes sif file
@@ -1150,7 +1196,11 @@ class NDExNciPidLoader(object):
 
         self._get_uniprot_gene_symbol_mapping(network)
 
-        self._replace_uniprot_with_gene_name_and_set_represents(network)
+        issues = self._set_represents_field_in_nodes(network)
+        report.addissues('Replacing represents node value', issues)
+
+        issues = self._set_type_for_nodes(network)
+        report.addissues('Updating node type value', issues)
 
         (neighbor_of_map, controls_state_change_map,
          other_edge_exists) = self._get_edge_type_maps(network)
@@ -1162,38 +1212,7 @@ class NDExNciPidLoader(object):
                                                             controls_state_change_map,
                                                             other_edge_exists)
 
-        node_reader = csv.DictReader(node_lines, fieldnames=node_fields, dialect='excel-tab')
-        for dict in node_reader:
-            node_table.append(dict)
-
-        # =======================
-        # PROCESS NODES
-        # =======================
-        for node_info in node_table:
-            node_to_update = network.get_node_by_name(node_info.get('PARTICIPANT').lstrip('[').rstrip(']'))
-
-            participant_name = self._update_node_name_if_chebi_and_get_participant_name(node_to_update,
-                                                                                        node_info)
-
-            self._set_alias_and_represents(network, node_to_update, node_info)
-
-            self._update_node_name_with_gene_symbol(node_to_update, participant_name)
-
-            typeval = PARTICIPANT_TYPE_MAP.get(node_info.get('PARTICIPANT_TYPE'))
-            if typeval is None:
-                logger.info('For file: ' + file_name + ' ' +
-                             node_info.get('PARTICIPANT_TYPE') +
-                             ' not in ' + str(PARTICIPANT_TYPE_MAP) +
-                             ' trying to see if type is within value')
-                for entry in PARTICIPANT_TYPE_MAP.keys():
-                    if entry in node_info.get('PARTICIPANT_TYPE'):
-                        typeval = entry
-                        break
-            if typeval is not None:
-                network.set_node_attribute(node_to_update['@id'], 'type',
-                                           typeval,
-                                           type='string',
-                                           overwrite=True)
+        self._another_node_name_update_wtf(network, node_lines, node_fields)
 
         self._apply_spring_layout(network)
 
@@ -1215,7 +1234,6 @@ class NDExNciPidLoader(object):
         # set labels, author, and reviewer network attributes
         issues = self._set_labels_author_and_reviewer_attributes(network)
         report.addissues('Setting labels, author and reviewer network attributes', issues)
-
 
         # update node names
         issues = self._nodenameupdater.update(network)

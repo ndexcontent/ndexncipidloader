@@ -62,6 +62,8 @@ DEFAULT_FTP_USER = 'anonymous'
 DEFAULT_FTP_PASS = 'anonymous'
 FTP_SUBDIR = 'ftp'
 
+GENERATED_BY_ATTRIB = 'prov:wasGeneratedBy'
+
 LOAD_PLAN = 'loadplan.json'
 """
 Name of file containing json load plan
@@ -303,28 +305,37 @@ class GeneSymbolSearcher(object):
 
 class UniProtToGeneSymbolUpdater(object):
     """
-    Given a network with nodes instances of this
+    Given a network with nodes, instances of this
     class query the node name and see if that
     name is in the represents field of that
     node with a uniprot: prefix. If it is, this
-    object then queries XXX for a gene symbol. If
-    not found original name is left.
+    object then queries `searcher` passed in for a
+    gene symbol. If no symbol is found then original name is left.
     """
 
     def __init__(self,
                  searcher=GeneSymbolSearcher()):
         """
         Constructor
-        :param searcher: GeneSymbolSearcher object
+
+        :param searcher: gene symbol searcher object
+        :type searcher: :py:class:`GeneSymbolSearcher`
         """
         self._searcher = searcher
 
     def update(self, network):
         """
-        Updates network nodes passed in
-        :param network:
-        :return:
+        Updates network nodes passed in as described for class
+        :param network: network to examine
+        :type network: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
+        :return: list of node names for which no replacement was found
+        :rtype: list
         """
+        if network is None:
+            return None
+
+        counter = 0
+        issues = []
         for id, node in network.get_nodes():
             name = node.get('n')
             represents = node.get('r')
@@ -337,7 +348,16 @@ class UniProtToGeneSymbolUpdater(object):
                 # find a gene symbol that can be used
                 symbol = self._searcher.get_symbol(name)
                 if symbol is not None:
+                    logger.debug('On network: ' + network.get_name() + ' Replacing: ' + node['n'] + ' with ' + symbol)
                     node['n'] = symbol
+                    counter = counter + 1
+                else:
+                    issues.append(name)
+                    logger.warning('On network: ' + network.get_name() + ' No replacement found for ' + name)
+        if counter > 0:
+            logger.debug('On network: ' + network.get_name() + ' updated ' + str(counter) + ' node names with symbol')
+
+        return issues
 
 
 class NetworkAttributesFromTSVFactory(object):
@@ -466,6 +486,51 @@ class NetworkAttributes(object):
         if name not in self._db:
             return None
         return self._db[name].get(NetworkAttributes.REVIEWERS)
+
+
+class NetworkIssueReport(object):
+    """
+    Holds summary information about issues found during network
+    creation
+    """
+    def __init__(self, network_name):
+        """
+        Constructor
+        """
+        self._networkname = network_name
+        self._issuemap = {}
+
+    def addissues(self, description, issue_list):
+        """
+
+        :param description: description of issue
+        :type description: string
+        :param issue_list:
+        :type issue_list: list
+        :return: None
+        """
+        if issue_list is None:
+            return
+        if len(issue_list) is 0:
+            return
+        self._issuemap[description] = issue_list
+
+    def get_fullreport_as_string(self):
+        """
+        Gets report as string
+
+        :return:
+        """
+        res = ''
+        for key in self._issuemap.keys():
+            res += '\t' + str(len(self._issuemap[key])) + ' issues -- ' + key + '\n'
+            for entry in self._issuemap[key]:
+                res += '\t\t' + entry + '\n'
+        if len(res) is 0:
+            return ''
+
+        return self._networkname + '\n' + res
+
 
 
 class NDExNciPidLoader(object):
@@ -671,11 +736,18 @@ class NDExNciPidLoader(object):
         :param source_attribute1:
         :param source_attribute2:
         :param target_attribute:
-        :return: None
+        :return: list of issues as string
+        :rtype: list
         """
+        issues = []
         for node_id, node in network.get_nodes():
             value1 = network.get_node_attribute(node, source_attribute1)
             value2 = network.get_node_attribute(node, source_attribute2)
+            if value1 and value2:
+                if value1['v'] != value2['v']:
+                    issues.append('both attributes have values' +
+                                  source_attribute1 + ' => ' + str(value1['v']) + ' and ' +
+                                  source_attribute2 + ' => ' + str(value2['v']))
             merged_value = value1 or value2
             if merged_value:
                 network.set_node_attribute(node['@id'], target_attribute, merged_value['v'],
@@ -683,7 +755,7 @@ class NDExNciPidLoader(object):
                                            overwrite=True)
                 network.remove_node_attribute(node, source_attribute1)
                 network.remove_node_attribute(node, source_attribute2)
-        return None
+        return issues
 
     def _get_pandas_dataframe(self, file_name):
         """
@@ -1055,7 +1127,8 @@ class NDExNciPidLoader(object):
         """
         Processes sif file
         :param file_name:
-        :return:
+        :return: Report on issues found with processing
+        :rtype: :py:class:`NetworkIssueReport`
         """
         node_table = []
 
@@ -1066,10 +1139,14 @@ class NDExNciPidLoader(object):
         network = t2n.convert_pandas_to_nice_cx_with_load_plan(df, self._loadplan)
 
         network.set_name(file_name.replace('.sif', ''))
+        report = NetworkIssueReport(network.get_name())
 
         # merge node attributes, logic was removed ndex2 python client so call a local implementation
-        self._merge_node_attributes(network, 'alias_a', 'alias_b', 'alias')
-        self._merge_node_attributes(network, 'PARTICIPANT_TYPE_A', 'PARTICIPANT_TYPE_B', 'type')
+        issues = self._merge_node_attributes(network, 'alias_a', 'alias_b', 'alias')
+        report.addissues('Merge of alias_a and alias_b node attributes to alias node attribute', issues)
+
+        issues = self._merge_node_attributes(network, 'PARTICIPANT_TYPE_A', 'PARTICIPANT_TYPE_B', 'type')
+        report.addissues('Merge of PARTICIPANT_TYPE_A and PARTICIPANT_TYPE_B node attributes to type node attribute', issues)
 
         self._get_uniprot_gene_symbol_mapping(network)
 
@@ -1104,7 +1181,7 @@ class NDExNciPidLoader(object):
 
             typeval = PARTICIPANT_TYPE_MAP.get(node_info.get('PARTICIPANT_TYPE'))
             if typeval is None:
-                logger.error('For file: ' + file_name + ' ' +
+                logger.info('For file: ' + file_name + ' ' +
                              node_info.get('PARTICIPANT_TYPE') +
                              ' not in ' + str(PARTICIPANT_TYPE_MAP) +
                              ' trying to see if type is within value')
@@ -1128,57 +1205,83 @@ class NDExNciPidLoader(object):
         # set the version in the network
         self._set_version_in_network_attributes(network_update_key, network)
 
+        # set provenance for network
+        self._set_generatedby_in_network_attributes(network)
+
         # set common attributes from style network
-        self._set_network_attributes_from_style_network(network)
+        issues = self._set_network_attributes_from_style_network(network)
+        report.addissues('Setting description and organism network attributes', issues)
 
         # set labels, author, and reviewer network attributes
-        self._set_labels_author_and_reviewer_attributes(network)
+        issues = self._set_labels_author_and_reviewer_attributes(network)
+        report.addissues('Setting labels, author and reviewer network attributes', issues)
+
 
         # update node names
-        self._nodenameupdater.update(network)
+        issues = self._nodenameupdater.update(network)
+        report.addissues('Replacement of uniprot value in node name with gene symbol', issues)
 
         if network_update_key is not None:
-            return network.update_to(network_update_key, self._server, self._user, self._pass,
-                                     user_agent=self._get_user_agent())
+            network.update_to(network_update_key, self._server, self._user, self._pass,
+                              user_agent=self._get_user_agent())
         else:
-            upload_message = network.upload_to(self._server, self._user,
-                                               self._pass,
-                                               user_agent=self._get_user_agent())
-            return upload_message
+            network.upload_to(self._server, self._user,
+                              self._pass,
+                              user_agent=self._get_user_agent())
+        return report
 
     def _set_labels_author_and_reviewer_attributes(self, network):
         """
 
         :param network:
-        :return:
+        :return: list of strings describing issues getting author, reviewer and label attributes
+        :rtype: list
         """
+        issues = []
         name = network.get_name()
         author = self._netattrib.get_author(name)
         if author is not None:
             network.set_network_attribute(NetworkAttributes.AUTHOR,
                                           author)
+        else:
+            issues.append('no author found in network attributes tsv')
+
         reviewers = self._netattrib.get_reviewers(name)
         if reviewers is not None:
             network.set_network_attribute(NetworkAttributes.REVIEWERS,
                                           reviewers)
+        else:
+            issues.append('no reviewers found in network attributes tsv')
+
         labels = self._netattrib.get_labels(name)
         if labels is not None:
             network.set_network_attribute(NetworkAttributes.LABELS,
                                           labels)
+        else:
+            issues.append('no labels found in network attributes tsv')
+        return issues
 
     def _set_network_attributes_from_style_network(self, network):
         """
         Copies organism and description network from style aka template
         network and adds it to the network passed in.
         :param network:
-        :return:
+        :return: list of strings denoting issues setting description and or organism
+        :rtype: list
         """
+        issues = []
         description = self._template.get_network_attribute('description')
         if description is not None:
             network.set_network_attribute('description', description['v'])
+        else:
+            issues.append('description network attribute not set cause its '
+                          'missing from template network')
         organism = self._template.get_network_attribute('organism')
         if organism is not None:
             network.set_network_attribute('organism', organism['v'])
+        else:
+            issues.append('organism network attribute not set cause its '
+                          'missing from template network')
 
     def _set_version_in_network_attributes(self, network_update_key, network):
         """
@@ -1197,6 +1300,16 @@ class NDExNciPidLoader(object):
                     network.set_network_attribute(k, v)
         if version_set is False:
             network.set_network_attribute('version', self._args.releaseversion)
+
+    def _set_generatedby_in_network_attributes(self, network):
+        """
+        Sets the network attribute :py:const:`GENERATED_BY_ATTRIB`
+        with ndexncipidloader <VERSION>
+        :param network: network to add attribute
+        :type :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
+        :return: None
+        """
+        network.set_network_attribute(GENERATED_BY_ATTRIB, 'ndexncipidloader ' + str(ndexncipidloader.__version__))
 
     def _get_user_agent(self):
         """
@@ -1228,7 +1341,7 @@ class NDExNciPidLoader(object):
         self._parse_load_plan()
         self._load_network_attributes()
         self._load_style_template()
-
+        report_list = []
         file_reverse = sorted(os.listdir(self._args.sifdir),
                               key=lambda s: s.lower(), reverse=True)
 
@@ -1239,8 +1352,10 @@ class NDExNciPidLoader(object):
 
             if file.endswith(".sif"):
                 logger.debug('Processing ' + file)
-                self._process_sif(file)
+                report_list.append(self._process_sif(file))
 
+        for entry in report_list:
+            sys.stdout.write(entry.get_fullreport_as_string())
         return 0
 
 

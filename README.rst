@@ -115,6 +115,14 @@ For information invoke :code:`loadndexncipidloader.py -h`
 
 **Example usage**
 
+This example assumes a valid configuration file with paxtools.jar in the working directory.
+
+.. code-block::
+
+   loadncipidloader.py --download sif
+
+**Example usage with sif files already downloaded**
+
 This example assumes a valid configuration file and the SIF files are located in :code:`sif/` directory
 
 .. code-block::

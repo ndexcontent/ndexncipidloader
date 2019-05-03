@@ -342,6 +342,9 @@ class UniProtToGeneSymbolUpdater(object):
             represents = node.get('r')
             logger.debug('represents is: ' + represents.lower())
             if represents is None:
+                issues.append('For node with id (' + str(id) +
+                              ') and name (' +
+                              name + ') no represents value found')
                 continue
             if 'uniprot:' + name.lower() in represents.lower():
                 # uniprot id is the node name
@@ -349,14 +352,21 @@ class UniProtToGeneSymbolUpdater(object):
                 # find a gene symbol that can be used
                 symbol = self._searcher.get_symbol(name)
                 if symbol is not None:
-                    logger.debug('On network: ' + network.get_name() + ' Replacing: ' + node['n'] + ' with ' + symbol)
+                    logger.debug('On network: ' + network.get_name() +
+                                 ' Replacing: ' + node['n'] +
+                                 ' with ' + symbol)
                     node['n'] = symbol
                     counter = counter + 1
                 else:
-                    issues.append(name)
-                    logger.warning('On network: ' + network.get_name() + ' No replacement found for ' + name)
+                    issues.append('For node with id (' + str(id) +
+                                  ') No symbol found to replace node name (' +
+                                  name + ') and represents (' +
+                                  represents + ')')
+                    logger.warning('On network: ' + network.get_name() +
+                                   ' No replacement found for ' + name)
         if counter > 0:
-            logger.debug('On network: ' + network.get_name() + ' updated ' + str(counter) + ' node names with symbol')
+            logger.debug('On network: ' + network.get_name() + ' updated ' +
+                         str(counter) + ' node names with symbol')
 
         return issues
 
@@ -524,14 +534,19 @@ class NetworkIssueReport(object):
         """
         res = ''
         for key in self._issuemap.keys():
-            res += '\t' + str(len(self._issuemap[key])) + ' issues -- ' + key + '\n'
+            num_issues = len(self._issuemap[key])
+            if num_issues == 1:
+                issue_word = 'issue'
+            else:
+                issue_word = 'issues'
+            res += '\t' + str(num_issues) + ' ' + issue_word + ' -- ' +\
+                   key + '\n'
             for entry in self._issuemap[key]:
                 res += '\t\t' + entry + '\n'
         if len(res) is 0:
             return ''
 
         return self._networkname + '\n' + res
-
 
 
 class NDExNciPidLoader(object):
@@ -836,7 +851,10 @@ class NDExNciPidLoader(object):
             node_type = network.get_node_attribute(k, 'type')
             typeval = PARTICIPANT_TYPE_MAP.get(node_type['v'])
             if typeval is None:
-                issues.append('unable to set type attribute for node: ' + str(v) + ' cause type is ' + node_type['v'])
+                issues.append('For node (' + str(v['@id']) +
+                              ') with name (' + v['n'] + ') and represents (' +
+                              v['r'] + ') no valid mapping for type (' + node_type['v'] +
+                              ') found')
             else:
                 network.set_node_attribute(k, 'type', typeval,
                                            overwrite=True)

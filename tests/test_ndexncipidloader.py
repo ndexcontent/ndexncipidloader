@@ -1,0 +1,92 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""Tests for `NDExNciPidLoader` class."""
+
+import os
+import tempfile
+import shutil
+
+import unittest
+import mock
+from mock import MagicMock
+
+from ndexncipidloader.loadndexncipidloader import NDExNciPidLoader
+from ndexutil.config import NDExUtilConfig
+from ndexncipidloader import loadndexncipidloader
+class Param(object):
+    """
+    Dummy object
+    """
+    pass
+
+class TestNDExNciPidLoader(unittest.TestCase):
+    """Tests for `NDExNciPidLoader` class."""
+
+    def setUp(self):
+        """Set up test fixtures, if any."""
+
+    def tearDown(self):
+        """Tear down test fixtures, if any."""
+
+    def test_parse_config(self):
+
+        temp_dir = tempfile.mkdtemp()
+        try:
+            p = Param()
+            p.profile = 'foo'
+            conf = os.path.join(temp_dir, 'blah.conf')
+            p.conf = conf
+            with open(conf, 'w') as f:
+                f.write('[' + p.profile + ']' + '\n')
+                f.write(NDExUtilConfig.USER + ' = bob\n')
+                f.write(NDExUtilConfig.PASSWORD + ' = pass\n')
+                f.write(NDExUtilConfig.SERVER + ' = server\n')
+                f.flush()
+
+            loader = NDExNciPidLoader(p)
+            loader._parse_config()
+            self.assertEqual('bob', loader._user)
+            self.assertEqual('pass', loader._pass)
+            self.assertEqual('server', loader._server)
+        finally:
+            shutil.rmtree(temp_dir)
+
+    def test_parse_load_plan(self):
+        p = Param()
+        p.loadplan = loadndexncipidloader.get_load_plan()
+        loader = NDExNciPidLoader(p)
+        loader._parse_load_plan()
+        self.assertTrue(isinstance(loader._loadplan, dict))
+
+    def test_get_style_template(self):
+        p = Param()
+        p.style = loadndexncipidloader.get_style()
+        loader = NDExNciPidLoader(p)
+        loader._load_style_template()
+        self.assertTrue(loader._template is not None)
+
+    def test_normalize_context_prefixes(self):
+        loader = NDExNciPidLoader(None)
+        self.assertEqual(None,
+                         loader._normalize_context_prefixes(None))
+
+        # try with value that shouldn't change
+        self.assertEqual('foo',
+                         loader._normalize_context_prefixes('foo'))
+
+        # try uniprot knowledgebase:
+        self.assertEqual('uniprot:hi',
+                         loader._normalize_context_prefixes('uniprot '
+                                                            'knowledgebase:'
+                                                            'hi'))
+        # try kegg compound:
+        self.assertEqual('kegg.compound:hi',
+                         loader._normalize_context_prefixes('kegg compound:'
+                                                            'hi'))
+        # try UniProt:
+        self.assertEqual('uniprot:yo',
+                         loader._normalize_context_prefixes('UniProt:'
+                                                            'yo'))
+
+

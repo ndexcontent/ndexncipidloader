@@ -14,6 +14,9 @@ import pandas as pd
 import requests
 import gzip
 import re
+from multiprocessing import Pool
+import multiprocessing
+
 from datetime import datetime
 
 from ftpretty import ftpretty
@@ -510,6 +513,26 @@ class NetworkIssueReport(object):
         """
         self._networkname = network_name
         self._issuemap = {}
+        self._nodetype = set()
+
+    def add_nodetype(self, nodetype):
+        """
+        Adds `nodetype` to set of node types
+        :param nodetype: value of type node attribute
+        :type nodetype: string
+        :return:
+        """
+        if nodetype is None:
+            return
+        self._nodetype.add(nodetype)
+
+    def get_nodetypes(self):
+        """
+        Gets node types
+        :return: set of node types
+        :rtype: set
+        """
+        return self._nodetype
 
     def addissues(self, description, issue_list):
         """
@@ -830,9 +853,12 @@ class NDExNciPidLoader(object):
         """this function replaces any references of uniprot knowledgebase: with uniprot: and
         kegg compound: with kegg.compound: to adhere to new normalization conventions
         """
+        if theline is None:
+            logger.warning('Unexpected None passed in')
+            return None
         return theline.replace('uniprot knowledgebase:',
                                'uniprot:').replace('kegg compound:',
-                                                   'kegg.compound').replace('UniProt:', 'uniprot:')
+                                                   'kegg.compound:').replace('UniProt:', 'uniprot:')
 
     def _set_type_for_nodes(self, network):
         """
@@ -1257,6 +1283,8 @@ class NDExNciPidLoader(object):
         issues = self._nodenameupdater.update(network)
         report.addissues('Replacement of uniprot value in node name with gene symbol', issues)
 
+        self._add_node_types_in_network_to_report(network, report)
+
         if network_update_key is not None:
             network.update_to(network_update_key, self._server, self._user, self._pass,
                               user_agent=self._get_user_agent())
@@ -1265,6 +1293,17 @@ class NDExNciPidLoader(object):
                               self._pass,
                               user_agent=self._get_user_agent())
         return report
+
+    def _add_node_types_in_network_to_report(self, network, report):
+        """
+        Adds node types to report
+        :param network:
+        :param report:
+        :return: None
+        """
+        for i, node in network.get_nodes():
+            val = network.get_node_attribute_value(i, 'type')
+            report.add_nodetype(val)
 
     def _set_labels_author_and_reviewer_attributes(self, network):
         """
@@ -1390,8 +1429,16 @@ class NDExNciPidLoader(object):
                 logger.debug('Processing ' + file)
                 report_list.append(self._process_sif(file))
 
+        node_type = set()
         for entry in report_list:
+            for nt in entry.get_nodetypes():
+                node_type.add(nt)
             sys.stdout.write(entry.get_fullreport_as_string())
+
+        sys.stdout.write('Node Types Found in all networks:\n')
+        for entry in node_type:
+            sys.stdout.write('\t' + entry + '\n')
+
         return 0
 
 

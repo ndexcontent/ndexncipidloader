@@ -552,6 +552,8 @@ class NetworkIssueReport(object):
             return
         if len(issue_list) is 0:
             return
+        if description is None:
+            return
         self._issuemap[description] = issue_list
 
     def get_fullreport_as_string(self):
@@ -574,7 +576,7 @@ class NetworkIssueReport(object):
         if len(res) is 0:
             return ''
 
-        return self._networkname + '\n' + res
+        return str(self._networkname) + '\n' + res
 
 
 class NDExNciPidLoader(object):

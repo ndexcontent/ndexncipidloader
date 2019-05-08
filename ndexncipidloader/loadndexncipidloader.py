@@ -309,12 +309,8 @@ class GeneSymbolSearcher(object):
 
 class UniProtToGeneSymbolUpdater(object):
     """
-    Given a network with nodes, instances of this
-    class query the node name and see if that
-    name is in the represents field of that
-    node with a uniprot: prefix. If it is, this
-    object then queries `searcher` passed in for a
-    gene symbol. If no symbol is found then original name is left.
+    Replaces node names with gene symbols.
+    For more information see :py:func:`~update`
     """
 
     def __init__(self,
@@ -322,14 +318,22 @@ class UniProtToGeneSymbolUpdater(object):
         """
         Constructor
 
-        :param searcher: gene symbol searcher object
+        :param searcher: gene symbol searcher object used by
+                         :py:func:`~update` method.
         :type searcher: :py:class:`GeneSymbolSearcher`
         """
         self._searcher = searcher
 
     def update(self, network):
         """
-        Updates network nodes passed in as described for class
+        Given a network with nodes, instances of this
+        class query the node name and see if that
+        name is in the represents field of that
+        node with a uniprot: prefix. If it is, this
+        object then queries `searcher` passed in via constructor for a
+        gene symbol. This gene symbol is then set as the node name.
+        If no symbol is found then original name is left.
+
         :param network: network to examine
         :type network: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
         :return: list of node names for which no replacement was found
@@ -340,12 +344,12 @@ class UniProtToGeneSymbolUpdater(object):
 
         counter = 0
         issues = []
-        for id, node in network.get_nodes():
+        for nodeid, node in network.get_nodes():
             name = node.get('n')
             represents = node.get('r')
-            logger.debug('represents is: ' + represents.lower())
+            logger.debug('represents is: ' + str(represents))
             if represents is None:
-                issues.append('For node with id (' + str(id) +
+                issues.append('For node with id (' + str(nodeid) +
                               ') and name (' +
                               name + ') no represents value found')
                 continue
@@ -355,21 +359,22 @@ class UniProtToGeneSymbolUpdater(object):
                 # find a gene symbol that can be used
                 symbol = self._searcher.get_symbol(name)
                 if symbol is not None:
-                    logger.debug('On network: ' + network.get_name() +
+                    logger.debug('On network: ' + str(network.get_name()) +
                                  ' Replacing: ' + node['n'] +
                                  ' with ' + symbol)
                     node['n'] = symbol
                     counter = counter + 1
                 else:
-                    issues.append('For node with id (' + str(id) +
+                    issues.append('For node with id (' + str(nodeid) +
                                   ') No symbol found to replace node name (' +
                                   name + ') and represents (' +
                                   represents + ')')
-                    logger.warning('On network: ' + network.get_name() +
+                    logger.warning('On network: ' + str(network.get_name()) +
                                    ' No replacement found for ' + name)
         if counter > 0:
-            logger.debug('On network: ' + network.get_name() + ' updated ' +
-                         str(counter) + ' node names with symbol')
+            logger.debug('On network: ' + str(network.get_name()) +
+                         ' updated ' + str(counter) +
+                         ' node names with symbol')
 
         return issues
 

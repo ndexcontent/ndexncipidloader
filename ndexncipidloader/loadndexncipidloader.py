@@ -660,7 +660,7 @@ class DirectedEdgeSetter(NetworkUpdator):
         return []
 
 
-class EmptyEdgeCitationAttributeRemover(NetworkUpdator):
+class EmptyCitationAttributeRemover(NetworkUpdator):
     """
     Iterates through all edges removing the citation
     edge attribute if there isnt any citations
@@ -674,7 +674,7 @@ class EmptyEdgeCitationAttributeRemover(NetworkUpdator):
         """
         Constructor
         """
-        super(EmptyEdgeCitationAttributeRemover, self).__init__()
+        super(EmptyCitationAttributeRemover, self).__init__()
 
     def get_description(self):
         """
@@ -700,21 +700,31 @@ class EmptyEdgeCitationAttributeRemover(NetworkUpdator):
         """
         if network is None:
             return ['Network is None']
-        citation = EmptyEdgeCitationAttributeRemover.CITATION
+        citation = EmptyCitationAttributeRemover.CITATION
         for k, v in network.get_edges():
             edge_attr = network.get_edge_attribute(k,
                                                    citation)
-            if edge_attr is (None, None):
+            if edge_attr == (None, None):
                 continue
-            if len(edge_attr['v']) is 0:
+            remove_edge = False
+            edge_data = edge_attr['v']
+            if len(edge_data) is 0:
                 remove_edge = True
             else:
-                remove_edge = True
-                for entry in edge_attr['v']:
-                    if entry is not "" and entry is not "pubmed:":
-                        remove_edge = False
-            if remove_edge is True:
-                network.remove_edge_attribute(k, citation)
+                new_list = []
+                for entry in edge_data:
+                    if entry == '' or entry.strip() == 'pubmed:':
+                        continue
+                    new_list.append(entry)
+                if len(new_list) is 0:
+                    remove_edge = True
+
+            network.remove_edge_attribute(k, citation)
+
+            if remove_edge is False:
+                network.set_edge_attribute(k, citation, values=new_list,
+                                           type='list_of_string')
+        return []
 
 
 class RedundantEdgeAdjudicator(NetworkUpdator):
@@ -1443,7 +1453,6 @@ class NDExNciPidLoader(object):
                 issues = updator.update(network)
                 report.addissues(updator.get_description(), issues)
 
-
         self._apply_spring_layout(network)
 
         network_update_key = self._net_summaries.get(network.get_name().upper())
@@ -1873,7 +1882,7 @@ def main(args):
         updators = [UniProtToGeneSymbolUpdater(),
                     RedundantEdgeAdjudicator(),
                     DirectedEdgeSetter(),
-                    EmptyEdgeCitationAttributeRemover()]
+                    EmptyCitationAttributeRemover()]
         loader = NDExNciPidLoader(theargs,
                                   netattribfac=nafac,
                                   networkupdators=updators)

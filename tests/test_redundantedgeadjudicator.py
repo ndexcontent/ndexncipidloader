@@ -25,6 +25,7 @@ class TestRedundantEdgeAdjudicator(unittest.TestCase):
 
     def test_remove_nonexistant_edge(self):
         adjud = RedundantEdgeAdjudicator()
+        self.assertTrue('Removes' in adjud.get_description())
         net = NiceCXNetwork()
         adjud._remove_edge(net, 1)
 

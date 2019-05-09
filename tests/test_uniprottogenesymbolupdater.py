@@ -25,6 +25,7 @@ class TestUniProtToGeneSymbolUpdater(unittest.TestCase):
 
     def test_update_none_passed_in(self):
         updater = UniProtToGeneSymbolUpdater()
+        self.assertTrue('Replacement of uniprot' in updater.get_description())
         self.assertEqual(None, updater.update(None))
 
     def test_update_no_represents_in_nodes(self):

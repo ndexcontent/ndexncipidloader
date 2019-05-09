@@ -26,6 +26,7 @@ class TestDirectedEdgeSetter(unittest.TestCase):
 
     def test_with_none_as_network(self):
         setter = DirectedEdgeSetter()
+        self.assertTrue('Sets directed' in setter.get_description())
         self.assertEqual(['Network is None'],
                          setter.update(None))
 

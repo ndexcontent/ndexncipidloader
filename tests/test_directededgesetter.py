@@ -61,15 +61,3 @@ class TestDirectedEdgeSetter(unittest.TestCase):
                              net.get_edge_attribute(edgeid,
                                                     directed)['v'])
             cntr = cntr + 1
-
-"""
-    def test_symbol_not_in_cache_no_hit(self):
-        mock = MagicMock()
-        mock.query = MagicMock(return_value={'max_score': None,
-                                             'took': 5, 'total': 0,
-                                             'hits': []})
-        searcher = GeneSymbolSearcher(bclient=mock)
-        self.assertEqual(None, searcher.get_symbol('haha'))
-
-        mock.query.assert_called_with('haha')
-"""

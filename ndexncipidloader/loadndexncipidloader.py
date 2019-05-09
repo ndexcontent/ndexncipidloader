@@ -307,7 +307,34 @@ class GeneSymbolSearcher(object):
         return None
 
 
-class UniProtToGeneSymbolUpdater(object):
+class NetworkUpdator(object):
+    """
+    Base class for classes that update
+    a network
+    """
+    def __init__(self):
+        """
+        Constructor
+        """
+        pass
+
+    def get_description(self):
+        """
+        Subclasses should implement
+        :return:
+        """
+        raise NotImplementedError('subclasses should implement')
+
+    def update(self, network):
+        """
+        subclasses should implement
+        :param network:
+        :return:
+        """
+        raise NotImplementedError('subclasses should implement')
+
+
+class UniProtToGeneSymbolUpdater(NetworkUpdator):
     """
     Replaces node names with gene symbols.
     For more information see :py:func:`~update`
@@ -323,6 +350,13 @@ class UniProtToGeneSymbolUpdater(object):
         :type searcher: :py:class:`GeneSymbolSearcher`
         """
         self._searcher = searcher
+
+    def get_description(self):
+        """
+
+        :return:
+        """
+        return 'Replacement of uniprot value in node name with gene symbol'
 
     def update(self, network):
         """
@@ -579,7 +613,7 @@ class NetworkIssueReport(object):
         return str(self._networkname) + '\n' + res
 
 
-class DirectedEdgeSetter(object):
+class DirectedEdgeSetter(NetworkUpdator):
     """
     Iterates through edges setting an edge
     type 'directed' to True or False as described
@@ -591,9 +625,16 @@ class DirectedEdgeSetter(object):
         """
         Constructor
         """
-        pass
+        super(DirectedEdgeSetter, self).__init__()
 
-    def update_edge_direction(self, network):
+    def get_description(self):
+        """
+        Sets directed edge attribute
+        :return:
+        """
+        return 'Sets directed edge attribute'
+
+    def update(self, network):
         """
         Examine all edges in network and if interaction is
         in :py:const:`~DIRECTED_INTERACTIONS~ list
@@ -619,7 +660,64 @@ class DirectedEdgeSetter(object):
         return []
 
 
-class RedundantEdgeAdjudicator(object):
+class EmptyEdgeCitationAttributeRemover(NetworkUpdator):
+    """
+    Iterates through all edges removing the citation
+    edge attribute if there isnt any citations
+    in the list or if the only citations are just
+    pubmed:
+    """
+
+    CITATION = 'citation'
+
+    def __init__(self):
+        """
+        Constructor
+        """
+        super(EmptyEdgeCitationAttributeRemover, self).__init__()
+
+    def get_description(self):
+        """
+        Gets description
+        :return: description as string
+        :rtype: string
+        """
+        return 'Removes edge attribute of type citation where' \
+               'there are no citations or citations are just' \
+               'pubmed:'
+
+    def update(self, network):
+        """
+        Iterates through all edges in network and examines
+        'citation' edge attribute. If the values for this
+        attribute are an empty list or a list of elements
+        with only 'pubmed:' then this attribute is removed
+
+        :param network: network to update
+        :type network: :py:class:`~ndex2.nice_cx_network.NiceCxNetwork`
+        :return: list of issues as strings found
+        :rtype: list
+        """
+        if network is None:
+            return ['Network is None']
+        citation = EmptyEdgeCitationAttributeRemover.CITATION
+        for k, v in network.get_edges():
+            edge_attr = network.get_edge_attribute(k,
+                                                   citation)
+            if edge_attr is (None, None):
+                continue
+            if len(edge_attr['v']) is 0:
+                remove_edge = True
+            else:
+                remove_edge = True
+                for entry in edge_attr['v']:
+                    if entry is not "" and entry is not "pubmed:":
+                        remove_edge = False
+            if remove_edge is True:
+                network.remove_edge_attribute(k, citation)
+
+
+class RedundantEdgeAdjudicator(NetworkUpdator):
     """
     Examines network and removes redundant edges
     """
@@ -627,7 +725,14 @@ class RedundantEdgeAdjudicator(object):
         """
         Constructor
         """
-        pass
+        super(RedundantEdgeAdjudicator, self).__init__()
+
+    def get_description(self):
+        """
+
+        :return:
+        """
+        return 'Removes redundant edges'
 
     def _remove_edge(self, network, edgeid):
         """
@@ -643,6 +748,8 @@ class RedundantEdgeAdjudicator(object):
 
         # remove edge attributes for deleted edge
         net_attrs = network.get_edge_attributes(edgeid)
+        if net_attrs is None:
+            return
         for net_attr in net_attrs:
             network.remove_edge_attribute(edgeid, net_attr['n'])
 
@@ -733,7 +840,7 @@ class RedundantEdgeAdjudicator(object):
             for t, i in inner_neighbor:
                 if other_edge_exists.get(s) is not None:
                     if other_edge_exists[s].get(t) is not None:
-                        self._remove_edge(i)
+                        self._remove_edge(network, i)
 
     def _remove_controls_state_of_edges(self,
                                         network,
@@ -768,9 +875,9 @@ class RedundantEdgeAdjudicator(object):
             for t, i in inner_neighbor:
                 if other_edge_exists.get(s) is not None:
                     if other_edge_exists[s].get(t) is not None:
-                        self._remove_edge(i)
+                        self._remove_edge(network, i)
 
-    def adjudicate_edges(self, network):
+    def update(self, network):
         """
         Examines all edges in network and removes redundant
         edges merging valuable annotation to remaining edges following this
@@ -803,9 +910,7 @@ class NDExNciPidLoader(object):
 
     def __init__(self, args,
                  netattribfac=None,
-                 nodenameupdater=UniProtToGeneSymbolUpdater(),
-                 edgeadjudicator=RedundantEdgeAdjudicator(),
-                 directedupdator=DirectedEdgeSetter()):
+                 networkupdators=None):
         """
         Constructor
 
@@ -813,8 +918,8 @@ class NDExNciPidLoader(object):
         :type args: list
         :param netattribfac: network attributes factory object
         :type netattribfac: :py:class:`NetworkAttributesFromTSVFactory`
-        :param nodenameupdater: class that updates node names with gene symbol
-        :type nodenameupdater: :py:class:`UniProtToGeneSymbolUpdater`
+        :param networkupdators: list of :py:class:`NetworkUpdators`
+        :type networkupdators: list(:py:class:`NetworkUpdators`)
         """
         self._args = args
         self._user = None
@@ -828,9 +933,7 @@ class NDExNciPidLoader(object):
         self._loadplan = None
         self._netattrib = None
         self._netattribfac = netattribfac
-        self._nodenameupdater = nodenameupdater
-        self._edgeadjudicator = edgeadjudicator
-        self._directedupdator = directedupdator
+        self._networkupdators = networkupdators
 
     def _parse_config(self):
         """
@@ -1333,15 +1436,13 @@ class NDExNciPidLoader(object):
         issues = self._set_type_for_nodes(network)
         report.addissues('Updating node type value', issues)
 
-        # clean up edges
-        issues = self._edgeadjudicator.adjudicate_edges(network)
-        report.addissues('Adjudicating edges', issues)
-
-        # set directed attribute on edges
-        issues = self._directedupdator.update_edge_direction(network)
-        report.addissues('Setting Edge directions', issues)
-
         self._another_node_name_update_wtf(network, node_lines, node_fields)
+
+        if self._networkupdators is not None:
+            for updator in self._networkupdators:
+                issues = updator.update(network)
+                report.addissues(updator.get_description(), issues)
+
 
         self._apply_spring_layout(network)
 
@@ -1363,10 +1464,6 @@ class NDExNciPidLoader(object):
         # set labels, author, and reviewer network attributes
         issues = self._set_labels_author_and_reviewer_attributes(network)
         report.addissues('Setting labels, author and reviewer network attributes', issues)
-
-        # update node names
-        issues = self._nodenameupdater.update(network)
-        report.addissues('Replacement of uniprot value in node name with gene symbol', issues)
 
         self._add_node_types_in_network_to_report(network, report)
 
@@ -1772,8 +1869,14 @@ def main(args):
             paxy.run_paxtools()
 
         nafac = NetworkAttributesFromTSVFactory(theargs.networkattrib)
+
+        updators = [UniProtToGeneSymbolUpdater(),
+                    RedundantEdgeAdjudicator(),
+                    DirectedEdgeSetter(),
+                    EmptyEdgeCitationAttributeRemover()]
         loader = NDExNciPidLoader(theargs,
-                                  netattribfac=nafac)
+                                  netattribfac=nafac,
+                                  networkupdators=updators)
         logger.info('Running network generation')
         return loader.run()
     except Exception as e:

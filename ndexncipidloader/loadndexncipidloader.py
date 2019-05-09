@@ -579,6 +579,222 @@ class NetworkIssueReport(object):
         return str(self._networkname) + '\n' + res
 
 
+class DirectedEdgeSetter(object):
+    """
+    Iterates through edges setting an edge
+    type 'directed' to True or False as described
+    below in :py:func:`update_edge_direction`
+    """
+    DIRECTED_ATTRIB = 'directed'
+
+    def __init__(self):
+        """
+        Constructor
+        """
+        pass
+
+    def update_edge_direction(self, network):
+        """
+        Examine all edges in network and if interaction is
+        in :py:const:`~DIRECTED_INTERACTIONS~ list
+        then the edge attribute 'directed'
+        is set to True otherwise it is set to False
+        :param network: network to update
+        :type network: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
+        :return: list of strings with any issues found
+        :rtype: list
+        """
+        if network is None:
+            return ['Network is None']
+
+        for k, v in network.get_edges():
+            if v['i'] in DIRECTED_INTERACTIONS:
+                network.set_edge_attribute(k,
+                                           DirectedEdgeSetter.DIRECTED_ATTRIB,
+                                           True)
+            else:
+                network.set_edge_attribute(k,
+                                           DirectedEdgeSetter.DIRECTED_ATTRIB,
+                                           False)
+        return []
+
+
+class RedundantEdgeAdjudicator(object):
+    """
+    Examines network and removes redundant edges
+    """
+    def __init__(self):
+        """
+        Constructor
+        """
+        pass
+
+    def _remove_edge(self, network, edgeid):
+        """
+        Removes edge and its attributes
+
+        :param network: network with edge
+        :type network: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
+        :param edgeid:
+        :type edgeid: int
+        :return: None
+        """
+        network.remove_edge(edgeid)
+
+        # remove edge attributes for deleted edge
+        net_attrs = network.get_edge_attributes(edgeid)
+        for net_attr in net_attrs:
+            network.remove_edge_attribute(edgeid, net_attr['n'])
+
+    def _get_edge_type_maps(self, network):
+        """
+        Iterates through all edges and examines interaction 'i'
+        field setting the dictionaries returned as follows.
+
+        If interaction is 'neighbor-of' then neighbor_of map dict is
+        set as follows:
+
+        neighbor_of[source node id][target node id] = edge id
+        neighbor_of[target node id][source node id] = edge id
+
+        If interaction is 'controls-state-change-of' then controls_state map dict is
+        set as follows:
+
+        controls_state[source node id][target node id] = edge id
+        controls_state[target node id][source node id] = edge id
+
+        For any other interaction then other_edge is set as follows:
+
+        other_edge[source node id][target node id] = edge id
+        other_edge[target node id][source node id] = edge id
+
+        :param network:
+        :return: tuple of dicts (neighbor_of, controls_state, other_edge)
+        """
+        neighbor_of_map = {}
+        controls_state_change_map = {}
+        other_edge_exists = {}
+        for k, v in network.get_edges():
+            s = v['s']
+            t = v['t']
+            i = v['i']
+            if i == 'neighbor-of':
+                if not s in neighbor_of_map:
+                    neighbor_of_map[s] = {}
+                if not t in neighbor_of_map:
+                    neighbor_of_map[t] = {}
+                neighbor_of_map[s][t] = k
+                neighbor_of_map[t][s] = k
+            elif i == 'controls-state-change-of':
+                if controls_state_change_map.get(s) is None:
+                    controls_state_change_map[s] = {}
+                if controls_state_change_map.get(t) is None:
+                    controls_state_change_map[t] = {}
+                controls_state_change_map[s][t] = k
+                controls_state_change_map[t][s] = k
+            else:
+                if not s in other_edge_exists:
+                    other_edge_exists[s] = {}
+                if not t in other_edge_exists:
+                    other_edge_exists[t] = {}
+                other_edge_exists[s][t] = True
+                other_edge_exists[t][s] = True
+
+        return neighbor_of_map, controls_state_change_map, other_edge_exists
+
+    def _remove_neighbor_of_edges(self, network,
+                                  neighbor_of_map,
+                                  other_edge_exists):
+        """
+        Iterate through 'neighbor_of_map' which is a dict of this
+        structure which had interactions named 'neighbor-of'
+
+        [source node id][target node id]
+                                          => edge id
+        [target node id][source node id]
+
+        Then iterate through 'other_edge_exists' which is a dict of
+        this structure and had interactions OTHER then 'neighbor-of'
+        and 'controls-state-change-of'
+
+        [source node id][target node id]
+                                          => edge id
+        [target node id][source node id]
+
+        and remove any edges and edge attributes
+        that are in 'other_edge_exists'
+        :param network:
+        :param neighbor_of_map:
+        :return:
+        """
+        n_edges = neighbor_of_map.items()
+        for s, ti in n_edges:
+            inner_neighbor = ti.items()
+            for t, i in inner_neighbor:
+                if other_edge_exists.get(s) is not None:
+                    if other_edge_exists[s].get(t) is not None:
+                        self._remove_edge(i)
+
+    def _remove_controls_state_of_edges(self,
+                                        network,
+                                        controls_state_change_map,
+                                        other_edge_exists):
+        """
+        Iterate through 'controls_state_change_map' which is a dict of this
+        structure which had interactions named 'controls-state-change-of'
+
+        [source node id][target node id]
+                                          => edge id
+        [target node id][source node id]
+
+        Then iterate through 'other_edge_exists' which is a dict of
+        this structure and had interactions OTHER then 'neighbor-of'
+        and 'controls-state-change-of'
+
+        [source node id][target node id]
+                                          => edge id
+        [target node id][source node id]
+
+        and remove any edges and edge attributes
+        that are in 'other_edge_exists'
+        :param network:
+        :param controls_state_change_map:
+        :param other_edge_exists:
+        :return:
+        """
+        n_edges = controls_state_change_map.items()
+        for s, ti in n_edges:
+            inner_neighbor = ti.items()
+            for t, i in inner_neighbor:
+                if other_edge_exists.get(s) is not None:
+                    if other_edge_exists[s].get(t) is not None:
+                        self._remove_edge(i)
+
+    def adjudicate_edges(self, network):
+        """
+        Examines all edges in network and removes redundant
+        edges merging valuable annotation to remaining edges following this
+        guideline.
+        :param network: network to update
+        :type network: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
+        :return: list of issues as strings encountered
+        :rtype: list
+        """
+        if network is None:
+            return ['Network passed in is None']
+
+        (neighbor_of_map, controls_state_change_map,
+         other_edge_exists) = self._get_edge_type_maps(network)
+
+        self._remove_neighbor_of_edges(network, neighbor_of_map,
+                                       other_edge_exists)
+
+        self._remove_controls_state_of_edges(network,
+                                             controls_state_change_map,
+                                             other_edge_exists)
+        return []
+
+
 class NDExNciPidLoader(object):
     """
     Loads content from NCI-PID sif files to NDEx
@@ -587,7 +803,9 @@ class NDExNciPidLoader(object):
 
     def __init__(self, args,
                  netattribfac=None,
-                 nodenameupdater=UniProtToGeneSymbolUpdater()):
+                 nodenameupdater=UniProtToGeneSymbolUpdater(),
+                 edgeadjudicator=RedundantEdgeAdjudicator(),
+                 directedupdator=DirectedEdgeSetter()):
         """
         Constructor
 
@@ -611,6 +829,8 @@ class NDExNciPidLoader(object):
         self._netattrib = None
         self._netattribfac = netattribfac
         self._nodenameupdater = nodenameupdater
+        self._edgeadjudicator = edgeadjudicator
+        self._directedupdator = directedupdator
 
     def _parse_config(self):
         """
@@ -926,147 +1146,6 @@ class NDExNciPidLoader(object):
                 v['r'] = v['n']
         return issues
 
-    def _get_edge_type_maps(self, network):
-        """
-        Iterates through all edges and examines interaction 'i'
-        field setting the dictionaries returned as follows.
-
-        If interaction is 'neighbor-of' then neighbor_of map dict is
-        set as follows:
-
-        neighbor_of[source node id][target node id] = edge id
-        neighbor_of[target node id][source node id] = edge id
-
-        If interaction is 'controls-state-change-of' then controls_state map dict is
-        set as follows:
-
-        controls_state[source node id][target node id] = edge id
-        controls_state[target node id][source node id] = edge id
-
-        For any other interaction then other_edge is set as follows:
-
-        other_edge[source node id][target node id] = edge id
-        other_edge[target node id][source node id] = edge id
-
-        In addition, if interaction is in DIRECTED_INTERACTIONS list
-        constant defined in this module then the edge attribute 'directed'
-        is set to True otherwise it is set to False
-
-        :param network:
-        :return: tuple of dicts (neighbor_of, controls_state, other_edge)
-        """
-        neighbor_of_map = {}
-        controls_state_change_map = {}
-        other_edge_exists = {}
-        for k, v in network.get_edges():
-            s = v['s']
-            t = v['t']
-            i = v['i']
-            if i == 'neighbor-of':
-                if not s in neighbor_of_map:
-                    neighbor_of_map[s] = {}
-                if not t in neighbor_of_map:
-                    neighbor_of_map[t] = {}
-                neighbor_of_map[s][t] = k
-                neighbor_of_map[t][s] = k
-            elif i == 'controls-state-change-of':
-                if controls_state_change_map.get(s) is None:
-                    controls_state_change_map[s] = {}
-                if controls_state_change_map.get(t) is None:
-                    controls_state_change_map[t] = {}
-                controls_state_change_map[s][t] = k
-                controls_state_change_map[t][s] = k
-            else:
-                if not s in other_edge_exists:
-                    other_edge_exists[s] = {}
-                if not t in other_edge_exists:
-                    other_edge_exists[t] = {}
-                other_edge_exists[s][t] = True
-                other_edge_exists[t][s] = True
-
-            if i in DIRECTED_INTERACTIONS:
-                network.set_edge_attribute(k, 'directed', True)
-            else:
-                network.set_edge_attribute(k, 'directed', False)
-
-        return neighbor_of_map, controls_state_change_map, other_edge_exists
-
-    def _remove_other_edges_in_neighbor_of_edges(self, network,
-                                                 neighbor_of_map,
-                                                 other_edge_exists):
-        """
-        Iterate through 'neighbor_of_map' which is a dict of this
-        structure which had interactions named 'neighbor-of'
-
-        [source node id][target node id]
-                                          => edge id
-        [target node id][source node id]
-
-        Then iterate through 'other_edge_exists' which is a dict of
-        this structure and had interactions OTHER then 'neighbor-of'
-        and 'controls-state-change-of'
-
-        [source node id][target node id]
-                                          => edge id
-        [target node id][source node id]
-
-        and remove any edges and edge attributes
-        that are in 'other_edge_exists'
-        :param network:
-        :param neighbor_of_map:
-        :return:
-        """
-        n_edges = neighbor_of_map.items()
-        for s, ti in n_edges:
-            inner_neighbor = ti.items()
-            for t, i in inner_neighbor:
-                if other_edge_exists.get(s) is not None:
-                    if other_edge_exists[s].get(t) is not None:
-                        network.remove_edge(i)
-                        # remove edge attributes for deleted edge
-                        net_attrs = network.get_edge_attributes(i)
-                        for net_attr in net_attrs:
-                            network.remove_edge_attribute(i, net_attr['n'])
-
-    def _remove_other_edges_in_controls_state_of_edges(self,
-                                                       network,
-                                                       controls_state_change_map,
-                                                       other_edge_exists):
-        """
-        Iterate through 'controls_state_change_map' which is a dict of this
-        structure which had interactions named 'controls-state-change-of'
-
-        [source node id][target node id]
-                                          => edge id
-        [target node id][source node id]
-
-        Then iterate through 'other_edge_exists' which is a dict of
-        this structure and had interactions OTHER then 'neighbor-of'
-        and 'controls-state-change-of'
-
-        [source node id][target node id]
-                                          => edge id
-        [target node id][source node id]
-
-        and remove any edges and edge attributes
-        that are in 'other_edge_exists'
-        :param network:
-        :param controls_state_change_map:
-        :param other_edge_exists:
-        :return:
-        """
-        n_edges = controls_state_change_map.items()
-        for s, ti in n_edges:
-            inner_neighbor = ti.items()
-            for t, i in inner_neighbor:
-                if other_edge_exists.get(s) is not None:
-                    if other_edge_exists[s].get(t) is not None:
-                        network.remove_edge(i)
-                        # remove edge attributes for deleted edge
-                        net_attrs = network.get_edge_attributes(i)
-                        for net_attr in net_attrs:
-                            network.remove_edge_attribute(i, net_attr['n'])
-
     def _set_alias_and_represents(self, network, node_to_update,
                                   node_info):
         """
@@ -1242,6 +1321,7 @@ class NDExNciPidLoader(object):
         issues = self._merge_node_attributes(network, 'alias_a', 'alias_b', 'alias')
         report.addissues('Merge of alias_a and alias_b node attributes to alias node attribute', issues)
 
+        # more node attribute merging
         issues = self._merge_node_attributes(network, 'PARTICIPANT_TYPE_A', 'PARTICIPANT_TYPE_B', 'type')
         report.addissues('Merge of PARTICIPANT_TYPE_A and PARTICIPANT_TYPE_B node attributes to type node attribute', issues)
 
@@ -1253,15 +1333,13 @@ class NDExNciPidLoader(object):
         issues = self._set_type_for_nodes(network)
         report.addissues('Updating node type value', issues)
 
-        (neighbor_of_map, controls_state_change_map,
-         other_edge_exists) = self._get_edge_type_maps(network)
+        # clean up edges
+        issues = self._edgeadjudicator.adjudicate_edges(network)
+        report.addissues('Adjudicating edges', issues)
 
-        self._remove_other_edges_in_neighbor_of_edges(network, neighbor_of_map,
-                                                      other_edge_exists)
-
-        self._remove_other_edges_in_controls_state_of_edges(network,
-                                                            controls_state_change_map,
-                                                            other_edge_exists)
+        # set directed attribute on edges
+        issues = self._directedupdator.update_edge_direction(network)
+        report.addissues('Setting Edge directions', issues)
 
         self._another_node_name_update_wtf(network, node_lines, node_fields)
 

@@ -27,12 +27,12 @@ class TestDirectedEdgeSetter(unittest.TestCase):
     def test_with_none_as_network(self):
         setter = DirectedEdgeSetter()
         self.assertEqual(['Network is None'],
-                         setter.update_edge_direction(None))
+                         setter.update(None))
 
     def test_with_empty_network(self):
         setter = DirectedEdgeSetter()
         net = NiceCXNetwork()
-        self.assertEqual([], setter.update_edge_direction(net))
+        self.assertEqual([], setter.update(net))
 
     def test_with_network_with_edge_not_supposed_to_be_directed(self):
         setter = DirectedEdgeSetter()
@@ -40,7 +40,7 @@ class TestDirectedEdgeSetter(unittest.TestCase):
         edgeid = net.create_edge(edge_source=0,
                                  edge_target=1,
                                  edge_interaction='foo')
-        self.assertEqual([], setter.update_edge_direction(net))
+        self.assertEqual([], setter.update(net))
         directed = DirectedEdgeSetter.DIRECTED_ATTRIB
         self.assertEqual(False,
                          net.get_edge_attribute(edgeid,
@@ -56,7 +56,7 @@ class TestDirectedEdgeSetter(unittest.TestCase):
             edgeid = net.create_edge(edge_source=0,
                                      edge_target=cntr,
                                      edge_interaction=entry)
-            self.assertEqual([], setter.update_edge_direction(net))
+            self.assertEqual([], setter.update(net))
             self.assertEqual(True,
                              net.get_edge_attribute(edgeid,
                                                     directed)['v'])

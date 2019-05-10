@@ -850,7 +850,6 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
         :param otheredgeid: the other edge that links the two nodes
         :return:
         """
-        print(network.get_name())
         c_attr = network.get_edge_attribute(edgeid,
                                             RedundantEdgeAdjudicator.CITATION)
         if c_attr == (None, None):
@@ -897,8 +896,11 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
                 if other_edge_exists.get(s) is not None:
                     other_edges = other_edge_exists[s].get(t)
                     if other_edges is not None and len(other_edges) > 0:
-                        print('i: ' + str(i) + ' xx: ' + str(other_edges) + ' type: ' + str(type(other_edges)))
-                        self._remove_if_redundant(network, i, other_edges)
+                        if not isinstance(i, set):
+                            self._remove_if_redundant(network, i, other_edges)
+                        else:
+                            for subi in i:
+                                self._remove_if_redundant(network, subi, other_edges)
 
     def update(self, network):
         """
@@ -921,7 +923,6 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
 
         self._remove_neighbor_of_edges(network, neighbor_of_map,
                                        controls_state_change_map)
-        print('controls section')
         self._remove_neighbor_of_edges(network,
                                        controls_state_change_map,
                                        other_edge_exists)

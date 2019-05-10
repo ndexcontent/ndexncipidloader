@@ -729,7 +729,8 @@ class EmptyCitationAttributeRemover(NetworkUpdator):
 
 class RedundantEdgeAdjudicator(NetworkUpdator):
     """
-    Examines network and removes redundant edges
+    Examines network and removes redundant edges as
+    described in :py:func:`~RedundantEdgeAdjudicator.update`
     """
     CITATION = 'citation'
 
@@ -765,6 +766,40 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
         for net_attr in net_attrs:
             network.remove_edge_attribute(edgeid, net_attr['n'])
 
+    def _add_to_edge_map(self, edge_map, edgeid, sourceid, targetid):
+        """
+        Updates `edge_map` in place with new entry.
+        Structure of edge_map
+        will be created as follows:
+
+        edge_map[sourceid][targetid] = set(edgeid)
+        edge_maps[targetid][sourceid] = set(edgeid)
+
+        :param edge_map: edge map to update, should be a empty dict to start
+        :type edge_map: dict
+        :param edgeid: id of edge
+        :type edgeid: int
+        :param sourceid: id of source node
+        :type sourceid: int
+        :param targetid: id of target node
+        :type targetid: int
+        :return: None
+        """
+        if not sourceid in edge_map:
+            edge_map[sourceid] = {}
+        if not targetid in edge_map:
+            edge_map[targetid] = {}
+
+        if edge_map[sourceid].get(targetid) is None:
+            edge_map[sourceid][targetid] = set()
+
+        if edge_map[targetid].get(sourceid) is None:
+            edge_map[targetid][sourceid] = set()
+
+        if edgeid not in edge_map[sourceid][targetid]:
+            edge_map[sourceid][targetid].add(edgeid)
+            edge_map[targetid][sourceid].add(edgeid)
+
     def _build_edge_map(self, network):
         """
         Iterates through all edges and examines interaction 'i'
@@ -787,7 +822,8 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
         other_edge[source node id][target node id] = set(edge id)
         other_edge[target node id][source node id] = set(edge id)
 
-        :param network:
+        :param network: network to extract edges from
+        :type network: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
         :return: tuple of dicts (neighbor_of, controls_state, other_edge)
         """
         neighbor_of_map = {}
@@ -806,35 +842,9 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
                 neighbor_of_map[s][t] = k
                 neighbor_of_map[t][s] = k
             elif i == 'controls-state-change-of':
-                if not s in controls_state_change_map:
-                    controls_state_change_map[s] = {}
-                if not t in controls_state_change_map:
-                    controls_state_change_map[t] = {}
-
-                if controls_state_change_map[s].get(t) is None:
-                    controls_state_change_map[s][t] = set()
-
-                if controls_state_change_map[t].get(s) is None:
-                    controls_state_change_map[t][s] = set()
-
-                if k not in controls_state_change_map[s][t]:
-                    controls_state_change_map[s][t].add(k)
-                    controls_state_change_map[t][s].add(k)
+                self._add_to_edge_map(controls_state_change_map, k, s, t)
             else:
-                if not s in other_edge_exists:
-                    other_edge_exists[s] = {}
-                if not t in other_edge_exists:
-                    other_edge_exists[t] = {}
-
-                if other_edge_exists[s].get(t) is None:
-                    other_edge_exists[s][t] = set()
-
-                if other_edge_exists[t].get(s) is None:
-                    other_edge_exists[t][s] = set()
-
-                if k not in other_edge_exists[s][t]:
-                    other_edge_exists[s][t].add(k)
-                    other_edge_exists[t][s].add(k)
+                self._add_to_edge_map(other_edge_exists, k, s, t)
 
         return neighbor_of_map, controls_state_change_map, other_edge_exists
 
@@ -855,43 +865,46 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
         if c_attr == (None, None):
             self._remove_edge(network, edgeid)
             return
-        citations = c_attr['v'].sort()
+        citations = c_attr['v']
+        citations.sort()
 
         for other_edge in other_edgeids:
             o_attr = network.get_edge_attribute(other_edge,
                                                 RedundantEdgeAdjudicator.CITATION)
             if o_attr == (None, None):
                 continue
-            if citations == o_attr['v'].sort():
+            other_citations = o_attr['v']
+            other_citations.sort()
+            if citations == other_citations:
                 self._remove_edge(network, edgeid)
                 return
 
-    def _remove_neighbor_of_edges(self, network,
-                                  neighbor_of_map,
-                                  other_edge_exists):
+    def _remove_redundant_edges(self, network,
+                                edge_map,
+                                other_edge_exists):
         """
-        Iterate through 'neighbor_of_map' which is a dict of this
-        structure which had interactions named 'neighbor-of'
+        Iterate through 'edge_map' which is a dict of this
+        structure:
 
         [source node id][target node id]
                                           => edge id
         [target node id][source node id]
 
         Then iterate through 'other_edge_exists' which is a dict of
-        this structure and had interactions OTHER then 'neighbor-of'
-        and 'controls-state-change-of'
+        this structure:
 
         [source node id][target node id]
-                                          => edge id
+                                          => set(edge id)
         [target node id][source node id]
 
         and remove any edges and edge attributes
-        that are in 'other_edge_exists'
+        that are in 'other_edge_exists' if they do NOT
+        have any citations that are unique to this edge
         :param network:
-        :param neighbor_of_map:
+        :param edge_map:
         :return:
         """
-        for s, ti in neighbor_of_map.items():
+        for s, ti in edge_map.items():
             for t, i in ti.items():
                 if other_edge_exists.get(s) is not None:
                     other_edges = other_edge_exists[s].get(t)
@@ -905,8 +918,16 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
     def update(self, network):
         """
         Examines all edges in network and removes redundant
-        edges merging valuable annotation to remaining edges following this
-        guideline.
+        edges following this algorithm:
+
+        Remove neighbor-of edges if there is another more descriptive
+        edge (anything other then neighbor-of) to the same nodes
+        UNLESS this edge has unique citations
+
+        Remove controls-state-change-of edges if there is another more
+        descriptive edge (anything other then neighbor-of) to the same
+        nodes UNLESS this edge has unique citations
+
         :param network: network to update
         :type network: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
         :return: list of issues as strings encountered
@@ -918,14 +939,21 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
         (neighbor_of_map, controls_state_change_map,
          other_edge_exists) = self._build_edge_map(network)
 
-        self._remove_neighbor_of_edges(network, neighbor_of_map,
-                                       other_edge_exists)
+        # remove any neighbor-of edges that exist in other edge
+        # map
+        self._remove_redundant_edges(network, neighbor_of_map,
+                                     other_edge_exists)
 
-        self._remove_neighbor_of_edges(network, neighbor_of_map,
-                                       controls_state_change_map)
-        self._remove_neighbor_of_edges(network,
-                                       controls_state_change_map,
-                                       other_edge_exists)
+        # remove any neighbor-of edges that exist in
+        # controls-state-change-of map
+        self._remove_redundant_edges(network, neighbor_of_map,
+                                     controls_state_change_map)
+
+        # remove any controls-state-change-of edges that exist
+        # in other edge map
+        self._remove_redundant_edges(network,
+                                     controls_state_change_map,
+                                     other_edge_exists)
         return []
 
 

@@ -7,6 +7,7 @@ import sys
 import logging
 from logging import config
 import subprocess
+import math
 import re
 import csv
 import json
@@ -1326,8 +1327,10 @@ class NDExNciPidLoader(object):
                                                type='list_of_string',
                                                overwrite=True)
                 elif len(unification_xref_array_tmp) == 1:
+
                     network.remove_node_attribute(node_to_update['@id'], 'alias')
                 else:
+
                     network.set_node_attribute(node_to_update['@id'], 'alias', unification_xref_array_tmp,
                                                type='list_of_string',
                                                overwrite=True)
@@ -1342,7 +1345,9 @@ class NDExNciPidLoader(object):
 
         else:
             unification = node_info.get('PARTICIPANT').lstrip('[').rstrip(']')
-        node_to_update['r'] = unification.replace('chebi:', '', 1)
+        newval = unification.replace('chebi:', '', 1)
+        if node_to_update['r'] != newval:
+            node_to_update['r'] = newval
 
     def _update_node_name_with_gene_symbol(self, node_to_update, participant_name):
         """
@@ -1361,8 +1366,9 @@ class NDExNciPidLoader(object):
             if len(clean_symbol) == 0 or clean_symbol == '-':
                 logger.debug('Mapping came back with -. Going with old name: ' + node_to_update['n'])
             else:
-                logger.debug('Updating node from name: ' + node_to_update['n'] + ' to ' + clean_symbol)
-                node_to_update['n'] = clean_symbol
+                if node_to_update['n'] != clean_symbol:
+                    logger.debug('Updating node from name: ' + node_to_update['n'] + ' to ' + clean_symbol)
+                    node_to_update['n'] = clean_symbol
 
     def _update_node_name_if_chebi_and_get_participant_name(self, node_to_update, node_info):
         """
@@ -1376,7 +1382,8 @@ class NDExNciPidLoader(object):
             participant_name = participant_name.lstrip('[').rstrip(']')
         if node_to_update['n'].startswith("CHEBI") and participant_name:
             if participant_name is not None:
-                node_to_update['n'] = participant_name
+                if node_to_update['n'] != participant_name:
+                    node_to_update['n'] = participant_name
         return participant_name
 
     def _cartesian(self, G):
@@ -1394,26 +1401,29 @@ class NDExNciPidLoader(object):
         num_nodes = len(network.get_nodes())
         my_networkx = network.to_networkx(mode='default')
         for edgetuple in my_networkx.edges(data=True):
-            edgetuple[2]['weight'] = 1.0
+            edgetuple[2]['weight'] = 0.0
             if 'interaction' in edgetuple[2]:
                 logger.info('Found edge: ' + str(edgetuple))
                 if edgetuple[2]['interaction'] == 'neighbor-of':
                     edgetuple[2]['weight'] = 0.0
                 elif edgetuple[2]['interaction'] == 'in-complex-with':
-                    edgetuple[2]['weight'] = 2.0
+                    edgetuple[2]['weight'] = 5.0
                 elif edgetuple[2]['interaction'] == 'controls-expression-of':
-                    edgetuple[2]['weight'] = 1.0
+                    edgetuple[2]['weight'] = 5.0
                 else:
-                    edgetuple[2]['weight'] = 2.0
+                    edgetuple[2]['weight'] = 5.0
             if edgetuple[2]['directed'] is True:
-                edgetuple[2]['weight'] += 4.0
+                edgetuple[2]['weight'] += 1.0
             logger.info('Updated edge: ' + str(edgetuple))
 
         for edgetuple in my_networkx.edges(data=True):
             logger.info('Checking: ' + str(edgetuple))
 
-        my_networkx.pos = nx.drawing.spring_layout(my_networkx, k=float(float(num_nodes)), scale=num_nodes * 50,
-                                                   iterations=200, weight='weight')
+        my_networkx.pos = nx.drawing.spring_layout(my_networkx,
+                                                   k=1.0,
+                                                   scale=num_nodes * 50,
+                                                   iterations=50,
+                                                   weight='weight', seed=10)
         cartesian_aspect = self._cartesian(my_networkx)
         network.set_opaque_aspect("cartesianLayout", cartesian_aspect)
 
@@ -1433,29 +1443,14 @@ class NDExNciPidLoader(object):
         # =======================
         for node_info in node_table:
             node_to_update = network.get_node_by_name(node_info.get('PARTICIPANT').lstrip('[').rstrip(']'))
-
+            sys.stdout.write('node to update: ' + str(node_to_update) + '\n')
+            sys.stdout.write(str(network.get_node_attributes(node_to_update['@id'])) + '\n')
             participant_name = self._update_node_name_if_chebi_and_get_participant_name(node_to_update,
                                                                                         node_info)
 
             self._set_alias_and_represents(network, node_to_update, node_info)
 
             self._update_node_name_with_gene_symbol(node_to_update, participant_name)
-
-            typeval = PARTICIPANT_TYPE_MAP.get(node_info.get('PARTICIPANT_TYPE'))
-            if typeval is None:
-                logger.info('For network: ' + network.get_name() + ' ' +
-                            node_info.get('PARTICIPANT_TYPE') +
-                            ' not in ' + str(PARTICIPANT_TYPE_MAP) +
-                            ' trying to see if type is within value')
-                for entry in PARTICIPANT_TYPE_MAP.keys():
-                    if entry in node_info.get('PARTICIPANT_TYPE'):
-                        typeval = entry
-                        break
-            if typeval is not None:
-                network.set_node_attribute(node_to_update['@id'], 'type',
-                                           typeval,
-                                           type='string',
-                                           overwrite=True)
 
     def _process_sif(self, file_name):
         """

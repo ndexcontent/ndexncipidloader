@@ -20,6 +20,10 @@
              {
                   "column_name": "PARTICIPANT_TYPE_A",
                   "attribute_name": "PARTICIPANT_TYPE_A"
+              },
+             {
+                  "column_name": "PARTICIPANT_NAME_A",
+                  "attribute_name": "PARTICIPANT_NAME_A"
               }
         ]
     },
@@ -36,7 +40,12 @@
              {
                   "column_name": "PARTICIPANT_TYPE_B",
                   "attribute_name": "PARTICIPANT_TYPE_B"
+              },
+                          {
+                  "column_name": "PARTICIPANT_NAME_B",
+                  "attribute_name": "PARTICIPANT_NAME_B"
               }
+
         ]
     },
     "edge_plan":

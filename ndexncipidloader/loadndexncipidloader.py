@@ -67,6 +67,11 @@ DEFAULT_FTP_USER = 'anonymous'
 DEFAULT_FTP_PASS = 'anonymous'
 FTP_SUBDIR = 'ftp'
 
+PARTICIPANT_NAME = 'PARTICIPANT_NAME'
+"""
+Participant name node attribute
+"""
+
 GENERATED_BY_ATTRIB = 'prov:wasGeneratedBy'
 
 LOAD_PLAN = 'loadplan.json'
@@ -140,6 +145,7 @@ def get_gene_symbol_mapping():
     :rtype: string
     """
     return os.path.join(get_package_dir(), GENE_SYMBOL_MAPPING)
+
 
 def _parse_arguments(desc, args):
     """
@@ -306,112 +312,6 @@ class GeneSymbolSearcher(object):
             self._cache[val] = sym_name
             return sym_name
         return None
-
-
-class NetworkUpdator(object):
-    """
-    Base class for classes that update
-    a network
-    """
-    def __init__(self):
-        """
-        Constructor
-        """
-        pass
-
-    def get_description(self):
-        """
-        Subclasses should implement
-        :return:
-        """
-        raise NotImplementedError('subclasses should implement')
-
-    def update(self, network):
-        """
-        subclasses should implement
-        :param network:
-        :return:
-        """
-        raise NotImplementedError('subclasses should implement')
-
-
-class UniProtToGeneSymbolUpdater(NetworkUpdator):
-    """
-    Replaces node names with gene symbols.
-    For more information see :py:func:`~update`
-    """
-
-    def __init__(self,
-                 searcher=GeneSymbolSearcher()):
-        """
-        Constructor
-
-        :param searcher: gene symbol searcher object used by
-                         :py:func:`~update` method.
-        :type searcher: :py:class:`GeneSymbolSearcher`
-        """
-        self._searcher = searcher
-
-    def get_description(self):
-        """
-
-        :return:
-        """
-        return 'Replacement of uniprot value in node name with gene symbol'
-
-    def update(self, network):
-        """
-        Given a network with nodes, instances of this
-        class query the node name and see if that
-        name is in the represents field of that
-        node with a uniprot: prefix. If it is, this
-        object then queries `searcher` passed in via constructor for a
-        gene symbol. This gene symbol is then set as the node name.
-        If no symbol is found then original name is left.
-
-        :param network: network to examine
-        :type network: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
-        :return: list of node names for which no replacement was found
-        :rtype: list
-        """
-        if network is None:
-            return None
-
-        counter = 0
-        issues = []
-        for nodeid, node in network.get_nodes():
-            name = node.get('n')
-            represents = node.get('r')
-            logger.debug('represents is: ' + str(represents))
-            if represents is None:
-                issues.append('For node with id (' + str(nodeid) +
-                              ') and name (' +
-                              name + ') no represents value found')
-                continue
-            if 'uniprot:' + name.lower() in represents.lower():
-                # uniprot id is the node name
-                # use the lookup tool to try to
-                # find a gene symbol that can be used
-                symbol = self._searcher.get_symbol(name)
-                if symbol is not None:
-                    logger.debug('On network: ' + str(network.get_name()) +
-                                 ' Replacing: ' + node['n'] +
-                                 ' with ' + symbol)
-                    node['n'] = symbol
-                    counter = counter + 1
-                else:
-                    issues.append('For node with id (' + str(nodeid) +
-                                  ') No symbol found to replace node name (' +
-                                  name + ') and represents (' +
-                                  represents + ')')
-                    logger.warning('On network: ' + str(network.get_name()) +
-                                   ' No replacement found for ' + name)
-        if counter > 0:
-            logger.debug('On network: ' + str(network.get_name()) +
-                         ' updated ' + str(counter) +
-                         ' node names with symbol')
-
-        return issues
 
 
 class NetworkAttributesFromTSVFactory(object):
@@ -612,6 +512,112 @@ class NetworkIssueReport(object):
             return ''
 
         return str(self._networkname) + '\n' + res
+
+
+class NetworkUpdator(object):
+    """
+    Base class for classes that update
+    a network
+    """
+    def __init__(self):
+        """
+        Constructor
+        """
+        pass
+
+    def get_description(self):
+        """
+        Subclasses should implement
+        :return:
+        """
+        raise NotImplementedError('subclasses should implement')
+
+    def update(self, network):
+        """
+        subclasses should implement
+        :param network:
+        :return:
+        """
+        raise NotImplementedError('subclasses should implement')
+
+
+class UniProtToGeneSymbolUpdater(NetworkUpdator):
+    """
+    Replaces node names with gene symbols.
+    For more information see :py:func:`~update`
+    """
+
+    def __init__(self,
+                 searcher=GeneSymbolSearcher()):
+        """
+        Constructor
+
+        :param searcher: gene symbol searcher object used by
+                         :py:func:`~update` method.
+        :type searcher: :py:class:`GeneSymbolSearcher`
+        """
+        self._searcher = searcher
+
+    def get_description(self):
+        """
+
+        :return:
+        """
+        return 'Replacement of uniprot value in node name with gene symbol'
+
+    def update(self, network):
+        """
+        Given a network with nodes, instances of this
+        class query the node name and see if that
+        name is in the represents field of that
+        node with a uniprot: prefix. If it is, this
+        object then queries `searcher` passed in via constructor for a
+        gene symbol. This gene symbol is then set as the node name.
+        If no symbol is found then original name is left.
+
+        :param network: network to examine
+        :type network: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
+        :return: list of node names for which no replacement was found
+        :rtype: list
+        """
+        if network is None:
+            return None
+
+        counter = 0
+        issues = []
+        for nodeid, node in network.get_nodes():
+            name = node.get('n')
+            represents = node.get('r')
+            logger.debug('represents is: ' + str(represents))
+            if represents is None:
+                issues.append('For node with id (' + str(nodeid) +
+                              ') and name (' +
+                              name + ') no represents value found')
+                continue
+            if 'uniprot:' + name.lower() in represents.lower():
+                # uniprot id is the node name
+                # use the lookup tool to try to
+                # find a gene symbol that can be used
+                symbol = self._searcher.get_symbol(name)
+                if symbol is not None:
+                    logger.debug('On network: ' + str(network.get_name()) +
+                                 ' Replacing: ' + node['n'] +
+                                 ' with ' + symbol)
+                    node['n'] = symbol
+                    counter = counter + 1
+                else:
+                    issues.append('For node with id (' + str(nodeid) +
+                                  ') No symbol found to replace node name (' +
+                                  name + ') and represents (' +
+                                  represents + ')')
+                    logger.warning('On network: ' + str(network.get_name()) +
+                                   ' No replacement found for ' + name)
+        if counter > 0:
+            logger.debug('On network: ' + str(network.get_name()) +
+                         ' updated ' + str(counter) +
+                         ' node names with symbol')
+
+        return issues
 
 
 class DirectedEdgeSetter(NetworkUpdator):
@@ -958,6 +964,323 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
         return []
 
 
+class CHEBINodeNameReplacer(NetworkUpdator):
+    """
+    If node name starts with CHEBI (then replace that name
+    with value in :py:const:`PARTICIPANT_NAME` node attribute
+    """
+    def __init__(self):
+        """
+        Constructor
+        """
+        super(CHEBINodeNameReplacer, self).__init__()
+
+    def get_description(self):
+        """
+        Gets description
+        :return:
+        """
+        return 'Replaces node names that start with CHEBI with value in ' + PARTICIPANT_NAME
+
+    def update(self, network):
+        """
+        If node name starts with CHEBI (anthen replace that name
+        with value in :py:const:`PARTICIPANT_NAME` node attribute
+
+        :param network: network to update
+        :type network: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
+        :return: list of issues as strings encountered
+        :rtype: list
+        """
+        issues = []
+        for nodeid, node in network.get_nodes():
+            if not node['n'].startswith('CHEBI'):
+                continue
+            node_attr = network.get_node_attribute(nodeid, PARTICIPANT_NAME)
+            if node_attr is None or node_attr == (None, None):
+                issues.append('Node: ' + str(node) +
+                              ' starts with CHEBI but ' + PARTICIPANT_NAME +
+                              ' node attribute does not exist')
+                continue
+            node['n'] = node_attr['v']
+        return issues
+
+
+class CHEBINodeRepresentsPrefixRemover(NetworkUpdator):
+    """
+    If node represents starts with chebi:CHEBI then remove
+    the chebi:
+    """
+    def __init__(self):
+        """
+        Constructor
+        """
+        super(CHEBINodeRepresentsPrefixRemover, self).__init__()
+
+    def get_description(self):
+        """
+        Gets description
+        :return:
+        """
+        return 'Removes chebi: from node represents fields that ' \
+               'start with chebi:CHEBI'
+
+    def update(self, network):
+        """
+        If node name starts with CHEBI (anthen replace that name
+        with value in :py:const:`PARTICIPANT_NAME` node attribute
+
+        :param network: network to update
+        :type network: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
+        :return: list of issues as strings encountered
+        :rtype: list
+        """
+        issues = []
+        for nodeid, node in network.get_nodes():
+            if not node['r'].startswith('chebi:CHEBI'):
+                continue
+            node['r'] = node['r'].replace('chebi:', '', 1)
+        return issues
+
+
+class GeneSymbolNodeNameUpdator(NetworkUpdator):
+    """
+    For protein nodes updates gene symbol from data
+    in gene symbol lookup dictionary
+    """
+    def __init__(self, genesymbol):
+        """
+        Constructor
+        """
+        super(GeneSymbolNodeNameUpdator, self).__init__()
+        self._gene_symbol_map = None
+        self._load_gene_symbol_map(genesymbol)
+
+    def _load_gene_symbol_map(self, genesymbol):
+        """
+        Loads gene symbol map from command line flag --genesymbol
+        :return:
+        """
+        if not os.path.isfile(genesymbol):
+            raise NDExNciPidLoaderError('Gene symbol mapping file ' +
+                                        str(genesymbol) +
+                                        ' does not exist')
+
+        with open(genesymbol, 'r') as f:
+            self._gene_symbol_map = json.load(f)
+
+    def get_description(self):
+        """
+        Gets description
+        :return:
+        """
+        return 'Replaces gene symbol with another symbol from lookup table'
+
+    def update(self, network):
+        """
+        Iterates through all nodes in network that are
+        proteins and updates node names with gene symbol
+        in mapping table.
+
+        :param network: network to update
+        :type network: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
+        :return: list of issues as strings encountered
+        :rtype: list
+        """
+        issues = []
+        for nodeid, node in network.get_nodes():
+            node_attr = network.get_node_attribute(nodeid, PARTICIPANT_NAME)
+            if node_attr is None or node_attr == (None, None):
+                continue
+            p_name = node_attr['v']
+
+            if p_name is not None and '_HUMAN' not in p_name:
+                continue
+            gene_symbol_mapped_name = self._gene_symbol_map.get(p_name)
+            if gene_symbol_mapped_name is None:
+                continue
+            clean_symbol = self._gene_symbol_map.get(p_name)
+            if len(clean_symbol) == 0 or clean_symbol == '-':
+                issues.append('Mapping came back with "-"  Going with '
+                              'old name => ' + node['n'])
+            else:
+                if node['n'] != clean_symbol:
+                    logger.debug('Updating node from name: ' +
+                                 node['n'] + ' to ' + clean_symbol)
+                    node['n'] = clean_symbol
+        return issues
+
+
+class NodeTypeUpdator(NetworkUpdator):
+    """
+    Update node types
+    """
+    def __init__(self):
+        """
+        Constructor
+        """
+        super(NodeTypeUpdator, self).__init__()
+
+    def get_description(self):
+        """
+        Gets description
+        :return:
+        """
+        return 'Updates node names via lookup table'
+
+    def update(self, network):
+        """
+        Iterates through all nodes in network that are
+        proteins and updates node names with gene symbol
+        in mapping table.
+
+        :param network: network to update
+        :type network: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
+        :return: list of issues as strings encountered
+        :rtype: list
+        """
+        issues = []
+        for nodeid, node in network.get_nodes():
+            node_type = network.get_node_attribute(nodeid, 'type')
+            typeval = PARTICIPANT_TYPE_MAP.get(node_type['v'])
+            if typeval is None:
+                issues.append('For node (' + str(node['@id']) +
+                              ') with name (' + node['n'] +
+                              ') and represents (' +
+                              node['r'] +
+                              ') no valid mapping for type (' +
+                              node_type['v'] +
+                              ') found')
+            else:
+                network.set_node_attribute(nodeid, 'type', typeval,
+                                           overwrite=True)
+        return issues
+
+
+class NodeAliasUpdator(NetworkUpdator):
+    """
+    Update node alias attribute
+    """
+    def __init__(self):
+        """
+        Constructor
+        """
+        super(NodeAliasUpdator, self).__init__()
+
+    def get_description(self):
+        """
+        Gets description
+        :return:
+        """
+        return 'Updates node alias attribute'
+
+    def update(self, network):
+        """
+        Iterates through all nodes in network that are
+        proteins and updates node names with gene symbol
+        in mapping table.
+
+        :param network: network to update
+        :type network: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
+        :return: list of issues as strings encountered
+        :rtype: list
+        """
+        issues = []
+        for k, v in network.get_nodes():
+            # =============================
+            # SET REPRESENTS
+            # =============================
+            aliases = network.get_node_attribute(v, 'alias')
+            if aliases is not None and len(aliases['v']) > 0:
+                logger.debug('Aliases is: ' + str(aliases))
+                v['r'] = (aliases['v'][0])
+                if len(aliases['v']) > 1:
+                    network.set_node_attribute(k, 'alias', aliases['v'][1:], type=aliases['d'],
+                                               overwrite=True)
+                else:
+                    network.remove_node_attribute(k, 'alias')
+            else:
+                v['r'] = v['n']
+        return issues
+
+
+class GeneFamilyExpander(NetworkUpdator):
+    """
+    Expands gene families by updating
+    type to proteinfamily and setting gene symbols
+    in member node attribute
+    """
+    def __init__(self):
+        """
+        Constructor
+        """
+        super(GeneFamilyExpander, self).__init__()
+
+    def get_description(self):
+        """
+        Gets description
+        :return:
+        """
+        return 'Expands any nodes of type protein with family in name' \
+               'to their proper gene families'
+
+    def update(self, network):
+        """
+        Iterates through all nodes in network that are
+        proteins and updates node names with gene symbol
+        in mapping table.
+
+        :param network: network to update
+        :type network: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
+        :return: list of issues as strings encountered
+        :rtype: list
+        """
+        issues = []
+        for nodeid, node in network.get_nodes():
+            if 'family' not in node['n']:
+                continue
+            issues.append('Found family in node: ' + node['n'])
+        return issues
+
+
+class NodeAttributeRemover(NetworkUpdator):
+    """
+    Update node alias attribute
+    """
+    def __init__(self, attribute_name):
+        """
+        Constructor
+        """
+        super(NodeAttributeRemover, self).__init__()
+        self._attr_name = attribute_name
+
+    def get_description(self):
+        """
+        Gets description
+        :return:
+        """
+        return 'Removes node attribute named ' + str(self._attr_name)
+
+    def update(self, network):
+        """
+        Iterates through all nodes in network that are
+        proteins and updates node names with gene symbol
+        in mapping table.
+
+        :param network: network to update
+        :type network: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
+        :return: list of issues as strings encountered
+        :rtype: list
+        """
+        if self._attr_name is None:
+            return ['Attribute name is None']
+
+        issues = []
+        for k, v in network.get_nodes():
+            aliases = network.remove_node_attribute(k, self._attr_name)
+        return issues
+
+
 class NDExNciPidLoader(object):
     """
     Loads content from NCI-PID sif files to NDEx
@@ -985,7 +1308,6 @@ class NDExNciPidLoader(object):
         self._gene_symbol_map = {}
         self._net_summaries = None
         self._ndex = None
-        self._node_mapping = {}
         self._loadplan = None
         self._netattrib = None
         self._netattribfac = netattribfac
@@ -1030,19 +1352,6 @@ class NDExNciPidLoader(object):
         """
         self._template = ndex2.create_nice_cx_from_file(os.path.abspath(self._args.style))
 
-    def _load_gene_symbol_map(self):
-        """
-        Loads gene symbol map from command line flag --genesymbol
-        :return:
-        """
-        if not os.path.isfile(self._args.genesymbol):
-            raise NDExNciPidLoaderError('Gene symbol mapping file ' +
-                                        str(self._args.genesymbol) +
-                                        ' does not exist')
-
-        with open(self._args.genesymbol, 'r') as f:
-            self._gene_symbol_map = json.load(f)
-
     def _load_network_summaries_for_user(self):
         """
         Gets a dictionary of all networks for user account
@@ -1071,58 +1380,6 @@ class NDExNciPidLoader(object):
 
         return return_properties
 
-    def query_mygene_for_genesymbol(self, gene_client, node, alias_values):
-        """
-        Given a NiceCXNetwork() node and node_attribute for node
-        this function gets a list of uniprot ids from the 'r' aka
-        represents field of node and from the 'alias' attribute in
-        the node attribute. mygene.querymany(scope='uniprot' is used
-        to get gene symbols. If multiple then there is a check for
-        identical values, if a descrepancy is found a message is
-        logged to error and the first entry is used.
-        :param node:
-        :param node_attributes:
-        :return:
-        """
-        idlist = []
-        if node is not None:
-            if 'r' in node:
-                if 'uniprot' in node['r']:
-                    idlist.append(re.sub('^.*:', '', node['r']))
-        for entry in alias_values:
-            if 'uniprot' in entry:
-                idlist.append(re.sub('^.*:', '', entry))
-        res = gene_client.querymany(idlist, scopes='uniprot', fields='symbol', returnall=True)
-
-        symbolset = set()
-        logger.debug('res: ' + str(res))
-        for entry in res:
-            if not 'symbol' in entry:
-                continue
-            symbolset.add(entry['symbol'])
-        if len(symbolset) > 1:
-            logger.error('Query ' + str(idlist) + ' returned multiple symbols: ' + str(symbolset) + ' using 1st')
-        if len(symbolset) == 0:
-            # need to query uniprot then
-            for id in idlist:
-                resp = requests.get('https://www.uniprot.org/uniprot/' + id + '.txt')
-                if resp.status_code is 200:
-                    logger.debug('In response')
-                    for entry in resp.text.split('\n'):
-
-                        if not entry.startswith('GN'):
-                            continue
-                        logger.debug('Found matching line: ' + entry)
-                        if 'Name=' in entry:
-                            subent = re.sub('^.*Name=', '', entry)
-                            logger.debug('name in entry' + subent)
-                            genesym = re.sub(' +.*', '', subent)
-                            logger.debug('genesym: ' + genesym)
-                            symbolset.add(genesym)
-
-        logger.debug('All symbols found: ' + str(symbolset))
-        return symbolset.pop()
-
     def _get_uniprot_gene_symbol_mapping(self, network):
         id_list = []
 
@@ -1147,7 +1404,6 @@ class NDExNciPidLoader(object):
         if look_up_json is not None:
             for bio_db_item in look_up_json:
                 self._gene_symbol_map[bio_db_item.get('InputValue')] = bio_db_item.get('Gene Symbol')
-                self._node_mapping[bio_db_item.get('InputValue')] = bio_db_item.get('Gene Symbol')
 
     def _merge_node_attributes(self, network, source_attribute1,
                                source_attribute2, target_attribute):
@@ -1246,65 +1502,6 @@ class NDExNciPidLoader(object):
                                'uniprot:').replace('kegg compound:',
                                                    'kegg.compound:').replace('UniProt:', 'uniprot:')
 
-    def _set_type_for_nodes(self, network):
-        """
-        Iterates through all nodes in network setting the 'type' node attribute
-        via values by using this dictionary: :py:const:`PARTICIPANT_TYPE_MAP`
-        to replace the existing 'type' node attribute value. If not found
-        a string entry is added to the list of issues returned to caller
-
-        :param network: network to update
-        :type network: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
-        :return: list of issues
-        :rtype: list
-        """
-        issues = []
-        for k, v in network.get_nodes():
-            node_type = network.get_node_attribute(k, 'type')
-            typeval = PARTICIPANT_TYPE_MAP.get(node_type['v'])
-            if typeval is None:
-                issues.append('For node (' + str(v['@id']) +
-                              ') with name (' + v['n'] + ') and represents (' +
-                              v['r'] + ') no valid mapping for type (' + node_type['v'] +
-                              ') found')
-            else:
-                network.set_node_attribute(k, 'type', typeval,
-                                           overwrite=True)
-
-        return issues
-
-    def _set_represents_field_in_nodes(self, network):
-        """
-        Iterates through all nodes in network setting the represents ('r') field
-        of the node to the first element in the 'alias' node attribute list. If no
-        'alias' attribute is found then the represents ('r') is set to the name of
-        the node. If the 'alias' node attribute list only had that one element or if
-        its empty then its removed otherwise that first element is removed from the
-        'alias' node attribute list
-
-        :param network: network to update
-        :type network: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
-        :return: list of issues
-        :rtype: list
-        """
-        issues = []
-        for k, v in network.get_nodes():
-            # =============================
-            # SET REPRESENTS
-            # =============================
-            aliases = network.get_node_attribute(v, 'alias')
-            if aliases is not None and len(aliases['v']) > 0:
-                logger.debug('Aliases is: ' + str(aliases))
-                v['r'] = (aliases['v'][0])
-                if len(aliases['v']) > 1:
-                    network.set_node_attribute(k, 'alias', aliases['v'][1:], type=aliases['d'],
-                                               overwrite=True)
-                else:
-                    network.remove_node_attribute(k, 'alias')
-            else:
-                v['r'] = v['n']
-        return issues
-
     def _set_alias_and_represents(self, network, node_to_update,
                                   node_info):
         """
@@ -1318,73 +1515,11 @@ class NDExNciPidLoader(object):
             unification_xref_array = []
             for uxr in unification_xref_array_tmp:
                 if uxr.upper().count('CHEBI') > 1:
+                    sys.stdout.write('Found a CHEBI ' + str(node_to_update) + ' => ' + unification_xref + '\n')
                     unification_xref_array.append(uxr.replace('chebi:', '', 1))
-
-            if len(unification_xref_array) < 1:
-                if len(unification_xref_array_tmp) > 1:
-                    unification_xref_array_tmp = unification_xref_array_tmp[1:]
-                    network.set_node_attribute(node_to_update['@id'], 'alias', unification_xref_array_tmp,
-                                               type='list_of_string',
-                                               overwrite=True)
-                elif len(unification_xref_array_tmp) == 1:
-
-                    network.remove_node_attribute(node_to_update['@id'], 'alias')
-                else:
-
-                    network.set_node_attribute(node_to_update['@id'], 'alias', unification_xref_array_tmp,
-                                               type='list_of_string',
-                                               overwrite=True)
-            else:
-                if len(unification_xref_array) > 1:
-                    unification_xref_array = unification_xref_array[1:]
-                    network.set_node_attribute(node_to_update['@id'], 'alias', unification_xref_array,
-                                               type='list_of_string',
-                                               overwrite=True)
-                else:
-                    network.remove_node_attribute(node_to_update['@id'], 'alias')
 
         else:
             unification = node_info.get('PARTICIPANT').lstrip('[').rstrip(']')
-        newval = unification.replace('chebi:', '', 1)
-        if node_to_update['r'] != newval:
-            node_to_update['r'] = newval
-
-    def _update_node_name_with_gene_symbol(self, node_to_update, participant_name):
-        """
-
-        :param node_to_update:
-        :param participant_name:
-        :return:
-        """
-        if participant_name is not None and '_HUMAN' in participant_name and self._gene_symbol_map.get(
-            participant_name) is not None:
-            gene_symbol_mapped_name = self._gene_symbol_map.get(participant_name)
-            if len(gene_symbol_mapped_name) > 25:
-                clean_symbol = gene_symbol_mapped_name.split('/')[0]
-            else:
-                clean_symbol = self._gene_symbol_map.get(participant_name)
-            if len(clean_symbol) == 0 or clean_symbol == '-':
-                logger.debug('Mapping came back with -. Going with old name: ' + node_to_update['n'])
-            else:
-                if node_to_update['n'] != clean_symbol:
-                    logger.debug('Updating node from name: ' + node_to_update['n'] + ' to ' + clean_symbol)
-                    node_to_update['n'] = clean_symbol
-
-    def _update_node_name_if_chebi_and_get_participant_name(self, node_to_update, node_info):
-        """
-
-        :param node_to_update:
-        :param node_info:
-        :return:
-        """
-        participant_name = node_info.get('PARTICIPANT_NAME')
-        if participant_name is not None:
-            participant_name = participant_name.lstrip('[').rstrip(']')
-        if node_to_update['n'].startswith("CHEBI") and participant_name:
-            if participant_name is not None:
-                if node_to_update['n'] != participant_name:
-                    node_to_update['n'] = participant_name
-        return participant_name
 
     def _cartesian(self, G):
         return [{'node': n,
@@ -1443,14 +1578,9 @@ class NDExNciPidLoader(object):
         # =======================
         for node_info in node_table:
             node_to_update = network.get_node_by_name(node_info.get('PARTICIPANT').lstrip('[').rstrip(']'))
-            sys.stdout.write('node to update: ' + str(node_to_update) + '\n')
-            sys.stdout.write(str(network.get_node_attributes(node_to_update['@id'])) + '\n')
-            participant_name = self._update_node_name_if_chebi_and_get_participant_name(node_to_update,
-                                                                                        node_info)
-
+            if node_to_update is None:
+                continue
             self._set_alias_and_represents(network, node_to_update, node_info)
-
-            self._update_node_name_with_gene_symbol(node_to_update, participant_name)
 
     def _process_sif(self, file_name):
         """
@@ -1463,7 +1593,7 @@ class NDExNciPidLoader(object):
 
         df, node_lines, node_fields = self._get_pandas_dataframe(file_name)
         if df is None:
-            return
+            return None
 
         network = t2n.convert_pandas_to_nice_cx_with_load_plan(df, self._loadplan)
 
@@ -1475,23 +1605,27 @@ class NDExNciPidLoader(object):
         report.addissues('Merge of alias_a and alias_b node attributes to alias node attribute', issues)
 
         # more node attribute merging
-        issues = self._merge_node_attributes(network, 'PARTICIPANT_TYPE_A', 'PARTICIPANT_TYPE_B', 'type')
-        report.addissues('Merge of PARTICIPANT_TYPE_A and PARTICIPANT_TYPE_B node attributes to type node attribute', issues)
+        issues = self._merge_node_attributes(network, 'PARTICIPANT_TYPE_A',
+                                             'PARTICIPANT_TYPE_B', 'type')
+        report.addissues('Merge of PARTICIPANT_TYPE_A and PARTICIPANT_TYPE_B '
+                         'node attributes to type node attribute', issues)
+
+        # more node attribute merging
+        issues = self._merge_node_attributes(network, 'PARTICIPANT_NAME_A',
+                                             'PARTICIPANT_NAME_B',
+                                             'PARTICIPANT_NAME')
+        report.addissues('Merge of PARTICIPANT_NAME_A and PARTICIPANT_NAME_B '
+                         'node attributes to PARTICIPANT_NAME node attribute',
+                         issues)
 
         self._get_uniprot_gene_symbol_mapping(network)
-
-        issues = self._set_represents_field_in_nodes(network)
-        report.addissues('Replacing represents node value', issues)
-
-        issues = self._set_type_for_nodes(network)
-        report.addissues('Updating node type value', issues)
-
-        self._another_node_name_update_wtf(network, node_lines, node_fields)
 
         if self._networkupdators is not None:
             for updator in self._networkupdators:
                 issues = updator.update(network)
                 report.addissues(updator.get_description(), issues)
+
+        self._another_node_name_update_wtf(network, node_lines, node_fields)
 
         self._apply_spring_layout(network)
 
@@ -1642,7 +1776,6 @@ class NDExNciPidLoader(object):
         self._parse_config()
         self._create_ndex_connection()
         logger.debug('Parsed config: ' + self._user)
-        self._load_gene_symbol_map()
         self._load_network_summaries_for_user()
         self._parse_load_plan()
         self._load_network_attributes()
@@ -1920,9 +2053,16 @@ def main(args):
         nafac = NetworkAttributesFromTSVFactory(theargs.networkattrib)
 
         updators = [UniProtToGeneSymbolUpdater(),
+                    NodeTypeUpdator(),
+                    NodeAliasUpdator(),
                     RedundantEdgeAdjudicator(),
                     DirectedEdgeSetter(),
-                    EmptyCitationAttributeRemover()]
+                    EmptyCitationAttributeRemover(),
+                    CHEBINodeNameReplacer(),
+                    CHEBINodeRepresentsPrefixRemover(),
+                    GeneSymbolNodeNameUpdator(theargs.genesymbol),
+                    GeneFamilyExpander(),
+                    NodeAttributeRemover('PARTICIPANT_NAME')]
         loader = NDExNciPidLoader(theargs,
                                   netattribfac=nafac,
                                   networkupdators=updators)

@@ -119,7 +119,7 @@ This example assumes a valid configuration file with paxtools.jar in the working
 
 .. code-block::
 
-   loadncipidloader.py --download sif
+   loadncipidloader.py sif
 
 **Example usage with sif files already downloaded**
 
@@ -127,7 +127,7 @@ This example assumes a valid configuration file and the SIF files are located in
 
 .. code-block::
 
-   loadncipidloader.py sif
+   loadncipidloader.py --skipdownload sif
 
 
 Via Docker

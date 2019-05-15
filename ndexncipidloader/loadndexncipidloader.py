@@ -1040,7 +1040,8 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
 
         return neighbor_of_map, controls_state_change_map, other_edge_exists
 
-    def _remove_if_redundant(self, network, edgeid, other_edgeids):
+    def _remove_if_redundant(self, network, edgeid, other_edgeids,
+                             mergecitations=False):
         """
         Removes edge specified by 'edgeid' if its 'citation' attribute
         is empty or if the citation in this edge exists in the edge
@@ -1063,8 +1064,20 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
         for other_edge in other_edgeids:
             o_attr = network.get_edge_attribute(other_edge,
                                                 RedundantEdgeAdjudicator.CITATION)
+            logger.warning('This merge citations for ticket NSU-92 is still broken. Fix me')
             if o_attr == (None, None):
-                continue
+                if mergecitations is False:
+                    continue
+                logger.warning('Moving data to other edge')
+                # special case if this 'edgeid' has citations, but
+                # the other edge does not. Move those citations to
+                # the other edge and then remove this edge
+                network.set_edge_attribute(other_edge,
+                                           RedundantEdgeAdjudicator.CITATION,
+                                           citations, type='list_of_string')
+                self._remove_edge(network, edgeid)
+                return
+
             other_citations = o_attr['v']
             other_citations.sort()
             if citations == other_citations:
@@ -1073,7 +1086,8 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
 
     def _remove_redundant_edges(self, network,
                                 edge_map,
-                                other_edge_exists):
+                                other_edge_exists,
+                                mergecitations=False):
         """
         Iterate through 'edge_map' which is a dict of this
         structure:
@@ -1102,10 +1116,12 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
                     other_edges = other_edge_exists[s].get(t)
                     if other_edges is not None and len(other_edges) > 0:
                         if not isinstance(i, set):
-                            self._remove_if_redundant(network, i, other_edges)
+                            self._remove_if_redundant(network, i, other_edges,
+                                                      mergecitations=mergecitations)
                         else:
                             for subi in i:
-                                self._remove_if_redundant(network, subi, other_edges)
+                                self._remove_if_redundant(network, subi, other_edges,
+                                                          mergecitations=mergecitations)
 
     def update(self, network):
         """
@@ -1146,6 +1162,14 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
         self._remove_redundant_edges(network,
                                      controls_state_change_map,
                                      other_edge_exists)
+
+        (neighbor_of_map, controls_state_change_map,
+         other_edge_exists) = self._build_edge_map(network)
+
+        self._remove_redundant_edges(network,
+                                     neighbor_of_map,
+                                     other_edge_exists,
+                                     mergecitations=True)
         return []
 
 
@@ -1688,7 +1712,7 @@ class NDExNciPidLoader(object):
                                    file_name)
         if os.path.getsize(path_to_sif) is 0:
             logger.error('File is empty: ' + path_to_sif)
-            return None, None, None
+            return None
 
         with open(path_to_sif, 'r') as f:
             lines = f.readlines()
@@ -1697,7 +1721,6 @@ class NDExNciPidLoader(object):
         edge_lines = []
         edge_rows_tuples = []
         node_rows_tuples = []
-        node_lines = []
         edge_fields = []
         node_fields = []
         for index in range(len(lines)):
@@ -1712,7 +1735,6 @@ class NDExNciPidLoader(object):
             elif mode is "node":
                 node_tuple = tuple(line.split('\t'))
                 node_rows_tuples.append(node_tuple)
-                node_lines.append(line)
             elif mode is "edge":
                 edge_tuple = tuple(line.split('\t'))
                 edge_rows_tuples.append(edge_tuple)
@@ -1729,7 +1751,7 @@ class NDExNciPidLoader(object):
         df_with_a_b = df_with_a_b.replace('\n', '', regex=True)
         df_with_a_b['PARTICIPANT_A'] = df_with_a_b['PARTICIPANT_A'].map(lambda x: x.lstrip('[').rstrip(']'))
         df_with_a_b['PARTICIPANT_B'] = df_with_a_b['PARTICIPANT_B'].map(lambda x: x.lstrip('[').rstrip(']'))
-        return df_with_a_b, node_lines, node_fields
+        return df_with_a_b
 
     def _normalize_context_prefixes(self, theline):
         """this function replaces any references of uniprot knowledgebase: with uniprot: and
@@ -1741,25 +1763,6 @@ class NDExNciPidLoader(object):
         return theline.replace('uniprot knowledgebase:',
                                'uniprot:').replace('kegg compound:',
                                                    'kegg.compound:').replace('UniProt:', 'uniprot:')
-
-    def _set_alias_and_represents(self, network, node_to_update,
-                                  node_info):
-        """
-
-        :return:
-        """
-        unification_xref = node_info.get('UNIFICATION_XREF')
-        if unification_xref is not None and len(unification_xref) > 0:
-            unification_xref_array_tmp = unification_xref.split(';')
-            unification = unification_xref_array_tmp[0]
-            unification_xref_array = []
-            for uxr in unification_xref_array_tmp:
-                if uxr.upper().count('CHEBI') > 1:
-                    sys.stdout.write('Found a CHEBI ' + str(node_to_update) + ' => ' + unification_xref + '\n')
-                    unification_xref_array.append(uxr.replace('chebi:', '', 1))
-
-        else:
-            unification = node_info.get('PARTICIPANT').lstrip('[').rstrip(']')
 
     def _cartesian(self, G):
         return [{'node': n,
@@ -1802,26 +1805,6 @@ class NDExNciPidLoader(object):
         cartesian_aspect = self._cartesian(my_networkx)
         network.set_opaque_aspect("cartesianLayout", cartesian_aspect)
 
-    def _another_node_name_update_wtf(self, network, node_lines, node_fields):
-        """
-
-        :param network:
-        :return:
-        """
-        node_table = []
-        node_reader = csv.DictReader(node_lines, fieldnames=node_fields, dialect='excel-tab')
-        for dict in node_reader:
-            node_table.append(dict)
-
-        # =======================
-        # PROCESS NODES
-        # =======================
-        for node_info in node_table:
-            node_to_update = network.get_node_by_name(node_info.get('PARTICIPANT').lstrip('[').rstrip(']'))
-            if node_to_update is None:
-                continue
-            self._set_alias_and_represents(network, node_to_update, node_info)
-
     def _process_sif(self, file_name):
         """
         Processes sif file
@@ -1831,7 +1814,7 @@ class NDExNciPidLoader(object):
         """
         node_table = []
 
-        df, node_lines, node_fields = self._get_pandas_dataframe(file_name)
+        df = self._get_pandas_dataframe(file_name)
         if df is None:
             return None
 
@@ -1862,8 +1845,6 @@ class NDExNciPidLoader(object):
             for updator in self._networkupdators:
                 issues = updator.update(network)
                 report.addissues(updator.get_description(), issues)
-
-        self._another_node_name_update_wtf(network, node_lines, node_fields)
 
         self._apply_spring_layout(network)
 

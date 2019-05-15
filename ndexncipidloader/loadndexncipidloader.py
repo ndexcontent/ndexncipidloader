@@ -16,6 +16,7 @@ import re
 import xml.etree.ElementTree as ET
 from multiprocessing import Pool
 import multiprocessing
+from requests.exceptions import HTTPError
 
 
 from datetime import datetime
@@ -73,6 +74,10 @@ Participant name node attribute
 """
 
 GENERATED_BY_ATTRIB = 'prov:wasGeneratedBy'
+
+
+NORMALIZATIONVERSION_ATTRIB = '__normalizationversion'
+
 
 LOAD_PLAN = 'loadplan.json'
 """
@@ -213,6 +218,10 @@ def _parse_arguments(desc, args):
                              'the <sifdir> directory set as'
                              'the last argument on the command line'
                              'to this program contains sif files')
+    parser.add_argument('--skipchecker', action='store_true',
+                        help='If set, skips gene symbol checker that'
+                             'examines all nodes of type protein'
+                             'and verifies they are symbols')
     parser.add_argument('--getfamilies', action='store_true',
                         help='If set, code examines owl files and generates '
                              'mapping of protein families')
@@ -407,6 +416,55 @@ class GeneSymbolSearcher(object):
         self._cache = {}
         self._bclient = bclient
 
+    def _query_mygene(self, val):
+        """
+        Queries biothings_client with 'val' to find
+        hit
+
+        :param val: id to send to :py:mod:`biothings_client`
+        :type val: string
+        :return: gene symbol or None
+        :rtype: string
+        """
+        try:
+            res = self._bclient.query(val)
+            if res is None:
+                logger.debug('Got None back from query for: ' + val)
+                return ''
+            logger.debug('Result from query for ' + val + ' ' + str(res))
+            if res['total'] == 0:
+                logger.debug('Got No hits back from query for: ' + val)
+                return ''
+            if len(res['hits']) > 0:
+                logger.debug('Got a hit from query for: ' + val)
+                sym_name = res['hits'][0].get('symbol')
+                if sym_name is None:
+                    logger.debug('Symbol name was None for ' + val)
+                    return ''
+                return sym_name.upper()
+        except HTTPError as he:
+            logger.error('Caught exception running query for: ' + val)
+
+        return None
+
+    def _query_uniprot(self, val):
+        """
+
+        :param val:
+        :return:
+        """
+        res = requests.get('https://www.uniprot.org/uniprot/' +
+                           val.upper() + '.txt')
+        for entry in res.text.split('\n'):
+            if entry.startswith('GN'):
+                if 'Name' in entry:
+                    return re.sub(';.*', '',
+                                  re.sub(' .*', '',
+                                         re.sub('^GN.*Name=',
+                                                '', entry)))
+                    break
+        return None
+
     def get_symbol(self, val):
         """
         Queries biothings_client with 'val' to find
@@ -423,26 +481,19 @@ class GeneSymbolSearcher(object):
 
         cache_symbol = self._cache.get(val)
         if cache_symbol is not None:
+            if cache_symbol == '':
+                return None
             return cache_symbol
 
-        res = self._bclient.query(val)
-        if res is None:
-            logger.debug('Got None back from query for: ' + val)
-            return None
-        logger.debug('Result from query for ' + val + ' ' + str(res))
-        if res['total'] == 0:
-            logger.debug('Got No hits back from query for: ' + val)
-            return None
-        if len(res['hits']) > 0:
-            logger.debug('Got a hit from query for: ' + val)
-
-            sym_name = res['hits'][0].get('symbol')
-            if sym_name is None:
-                logger.debug('Symbol name was None for ' + val)
-                return None
-            self._cache[val] = sym_name
-            return sym_name
-        return None
+        sym_name = self._query_mygene(val)
+        if sym_name is None or sym_name == '':
+            res = self._query_uniprot(val)
+            if res is not None:
+                self._cache[val] = res
+                return res
+            sym_name = ''
+        self._cache[val] = sym_name
+        return sym_name
 
 
 class NetworkAttributesFromTSVFactory(object):
@@ -730,8 +781,8 @@ class UniProtToGeneSymbolUpdater(NetworkUpdator):
                 # use the lookup tool to try to
                 # find a gene symbol that can be used
                 symbol = self._searcher.get_symbol(name)
-                if symbol is not None:
-                    logger.debug('On network: ' + str(network.get_name()) +
+                if symbol is not None and symbol != '':
+                    logger.info('On network: ' + str(network.get_name()) +
                                  ' Replacing: ' + node['n'] +
                                  ' with ' + symbol)
                     node['n'] = symbol
@@ -741,7 +792,7 @@ class UniProtToGeneSymbolUpdater(NetworkUpdator):
                                   ') No symbol found to replace node name (' +
                                   name + ') and represents (' +
                                   represents + ')')
-                    logger.warning('On network: ' + str(network.get_name()) +
+                    logger.info('On network: ' + str(network.get_name()) +
                                    ' No replacement found for ' + name)
         if counter > 0:
             logger.debug('On network: ' + str(network.get_name()) +
@@ -1242,6 +1293,53 @@ class GeneSymbolNodeNameUpdator(NetworkUpdator):
         return issues
 
 
+class GeneSymbolChecker(NetworkUpdator):
+    """
+    For protein nodes updates gene symbol from data
+    in gene symbol lookup dictionary
+    """
+    def __init__(self, searcher=GeneSymbolSearcher()):
+        """
+        Constructor
+        """
+        super(GeneSymbolChecker, self).__init__()
+        self._searcher = searcher
+
+    def get_description(self):
+        """
+        Gets description
+        :return:
+        """
+        return 'Checks all gene symbols to make sure they are really symbols'
+
+    def update(self, network):
+        """
+        Iterates through all nodes in network that are
+        proteins and updates node names with gene symbol
+        in mapping table.
+
+        :param network: network to update
+        :type network: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
+        :return: list of issues as strings encountered
+        :rtype: list
+        """
+        issues = []
+        for nodeid, node in network.get_nodes():
+            node_attr = network.get_node_attribute(nodeid, 'type')
+            if node_attr is None or node_attr == (None, None):
+                issues.append('No type attribute found for node: ' + str(node))
+                continue
+            if node_attr['v'] != 'protein':
+                continue
+
+            res = self._searcher.get_symbol(node['n'])
+            if res is None or res == '':
+                issues.append(str(node['n']) + ' does not come back as gene symbol')
+            elif res != node['n']:
+                issues.append(str(node['n']) + ' differs from symbol ' + res)
+        return issues
+
+
 class NodeTypeUpdator(NetworkUpdator):
     """
     Update node types
@@ -1307,9 +1405,12 @@ class NodeAliasUpdator(NetworkUpdator):
 
     def update(self, network):
         """
-        Iterates through all nodes in network that are
-        proteins and updates node names with gene symbol
-        in mapping table.
+        Iterates through all nodes in network and sets the
+        represents field in node to the first element in
+        'alias' node attribute. That element is then removed
+        from the 'alias' attribute. If the 'alias' attribute
+        is empty it is removed. If there isn't an 'alias' attribute
+        or its empty then the node represents is set to the node name
 
         :param network: network to update
         :type network: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
@@ -1539,31 +1640,6 @@ class NDExNciPidLoader(object):
 
         return return_properties
 
-    def _get_uniprot_gene_symbol_mapping(self, network):
-        id_list = []
-
-        for k, v in network.get_nodes():
-            participant_name = v['n']
-            logger.debug('node names: ' + participant_name)
-            if participant_name is not None and '_HUMAN' in participant_name and self._gene_symbol_map.get(
-                participant_name) is None:
-                id_list.append(participant_name)
-        if len(id_list) is 0:
-            return
-
-        logger.debug('List of ids to lookup on biodbnet: ' + str(id_list))
-        # =================================
-        # LOOKUP UNIPROT ID -> GENE SYMBOL
-        # =================================
-        url = 'https://biodbnet-abcc.ncifcrf.gov/webServices/rest.php/biodbnetRestApi.json?method=db2db&input=uniprot ' \
-              'entry name&inputValues=' + ','.join(id_list) + '&outputs=genesymbol&taxonId=9606&format=row'
-        logger.debug('look up query: ' + url)
-        look_up_req = requests.get(url)
-        look_up_json = look_up_req.json()
-        if look_up_json is not None:
-            for bio_db_item in look_up_json:
-                self._gene_symbol_map[bio_db_item.get('InputValue')] = bio_db_item.get('Gene Symbol')
-
     def _merge_node_attributes(self, network, source_attribute1,
                                source_attribute2, target_attribute):
         """
@@ -1777,8 +1853,6 @@ class NDExNciPidLoader(object):
                          'node attributes to PARTICIPANT_NAME node attribute',
                          issues)
 
-        self._get_uniprot_gene_symbol_mapping(network)
-
         if self._networkupdators is not None:
             for updator in self._networkupdators:
                 issues = updator.update(network)
@@ -1798,6 +1872,9 @@ class NDExNciPidLoader(object):
 
         # set provenance for network
         self._set_generatedby_in_network_attributes(network)
+
+        # set normalization version for network
+        self._set_normalization_version(network)
 
         # set common attributes from style network
         issues = self._set_network_attributes_from_style_network(network)
@@ -1909,6 +1986,16 @@ class NDExNciPidLoader(object):
         :return: None
         """
         network.set_network_attribute(GENERATED_BY_ATTRIB, 'ndexncipidloader ' + str(ndexncipidloader.__version__))
+
+    def _set_normalization_version(self, network):
+        """
+        Sets the network attribute :py:const:`NORMALIZATIONVERSION`
+        with 0.1
+        :param network: network to add attribute
+        :type :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
+        :return: None
+        """
+        network.set_network_attribute(NORMALIZATIONVERSION_ATTRIB, '0.1')
 
     def _get_user_agent(self):
         """
@@ -2219,18 +2306,22 @@ def main(args):
             return 0
 
         nafac = NetworkAttributesFromTSVFactory(theargs.networkattrib)
-
-        updators = [UniProtToGeneSymbolUpdater(),
-                    NodeTypeUpdator(),
+        searcher = GeneSymbolSearcher()
+        updators = [NodeTypeUpdator(),
                     NodeAliasUpdator(),
                     RedundantEdgeAdjudicator(),
                     DirectedEdgeSetter(),
                     EmptyCitationAttributeRemover(),
+                    UniProtToGeneSymbolUpdater(searcher=searcher),
                     CHEBINodeNameReplacer(),
                     CHEBINodeRepresentsPrefixRemover(),
                     GeneSymbolNodeNameUpdator(theargs.genesymbol),
                     NodeAttributeRemover('PARTICIPANT_NAME'),
                     GeneFamilyExpander(theargs.genesymbol)]
+
+        if theargs.skipchecker is False:
+            updators.append(GeneSymbolChecker(searcher=searcher))
+
         loader = NDExNciPidLoader(theargs,
                                   netattribfac=nafac,
                                   networkupdators=updators)

@@ -90,11 +90,6 @@ following these conventions:
 * **description** is pulled from **description** attribute of `style.cx`_
 * **__normalizationversion** is pulled from **__normalizationversion** attribute of `style.cx`_
 
-Tools
------
-
-* **loadndexncipidloader.py** -- Loads NCI-PID networks from OWL files to NDEx_
-
 Dependencies
 ------------
 
@@ -162,7 +157,7 @@ put in current working directory or specify path to **paxtools.jar** with `--pax
 Usage
 -----
 
-For information invoke :code:`loadndexncipidloader.py -h`
+For more information invoke :code:`loadndexncipidloader.py -h`
 
 **Example usage**
 

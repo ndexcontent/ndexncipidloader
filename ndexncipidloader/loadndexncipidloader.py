@@ -14,8 +14,6 @@ import requests
 import gzip
 import re
 import xml.etree.ElementTree as ET
-from multiprocessing import Pool
-import multiprocessing
 from requests.exceptions import HTTPError
 
 
@@ -1342,7 +1340,9 @@ class GeneSymbolChecker(NetworkUpdator):
 
 class NodeTypeUpdator(NetworkUpdator):
     """
-    Update node types
+    Update node types using values in this map
+    :py:const:`PARTICIPANT_TYPE_MAP`
+
     """
     def __init__(self):
         """
@@ -1359,9 +1359,9 @@ class NodeTypeUpdator(NetworkUpdator):
 
     def update(self, network):
         """
-        Iterates through all nodes in network that are
-        proteins and updates node names with gene symbol
-        in mapping table.
+        Iterates through all nodes in network and updates
+        'type' node attribute value by replacing existing
+        type with values found in :py:const:`PARTICIPANT_TYPE_MAP`
 
         :param network: network to update
         :type network: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`

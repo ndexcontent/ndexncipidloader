@@ -27,6 +27,7 @@ requirements = [ 'ndex2>=3.2.0,<=4.0.0',
 setup_requirements = [ ]
 
 test_requirements = [
+    "requests-mock",
     "mock"
 ]
 

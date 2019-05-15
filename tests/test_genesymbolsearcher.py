@@ -10,6 +10,11 @@ import shutil
 import unittest
 import mock
 from mock import MagicMock
+import requests
+import requests_mock
+from requests.exceptions import HTTPError
+
+
 
 from ndexncipidloader.loadndexncipidloader import GeneSymbolSearcher
 
@@ -27,21 +32,49 @@ class TestGeneSymbolSearcher(unittest.TestCase):
         searcher = GeneSymbolSearcher()
         self.assertEqual(None, searcher.get_symbol(None))
 
+    def test_get_symbol_cache_hit(self):
+        searcher = GeneSymbolSearcher()
+        searcher._cache['haha'] = 'gee'
+        self.assertEqual('gee', searcher.get_symbol('haha'))
+
+    def test_get_symbol_cache_hit_is_empty_str(self):
+        searcher = GeneSymbolSearcher()
+        searcher._cache['haha'] = ''
+        self.assertEqual(None, searcher.get_symbol('haha'))
+
     def test_symbol_not_in_cache_no_hit(self):
         mock = MagicMock()
         mock.query = MagicMock(return_value={'max_score': None,
                                              'took': 5, 'total': 0,
                                              'hits': []})
         searcher = GeneSymbolSearcher(bclient=mock)
-        self.assertEqual(None, searcher.get_symbol('haha'))
+
+        with requests_mock.Mocker() as m:
+            m.register_uri('GET', 'https://www.uniprot.org/uniprot/HAHA.txt',
+                           status_code='404', text=None)
+            self.assertEqual('', searcher.get_symbol('haha'))
 
         mock.query.assert_called_with('haha')
 
-    def test_symbol_not_in_cache_no_hit_and_none_resturned(self):
+    def test_symbol_not_in_cache_no_hit_and_httperror_raised(self):
+        mock = MagicMock()
+        mock.query = MagicMock(side_effect=HTTPError('some error'))
+        searcher = GeneSymbolSearcher(bclient=mock)
+        with requests_mock.Mocker() as m:
+            m.register_uri('GET', 'https://www.uniprot.org/uniprot/HAHA.txt',
+                           status_code='404', text=None)
+            self.assertEqual('', searcher.get_symbol('haha'))
+
+        mock.query.assert_called_with('haha')
+
+    def test_symbol_not_in_cache_no_hit_and_none_returned(self):
         mock = MagicMock()
         mock.query = MagicMock(return_value=None)
         searcher = GeneSymbolSearcher(bclient=mock)
-        self.assertEqual(None, searcher.get_symbol('haha'))
+        with requests_mock.Mocker() as m:
+            m.register_uri('GET', 'https://www.uniprot.org/uniprot/HAHA.txt',
+                           status_code='404', text=None)
+            self.assertEqual('', searcher.get_symbol('haha'))
 
         mock.query.assert_called_with('haha')
 
@@ -50,7 +83,10 @@ class TestGeneSymbolSearcher(unittest.TestCase):
         mock.query = MagicMock(return_value={'total': 1,
                                              'hits': [{'symbol': None}]})
         searcher = GeneSymbolSearcher(bclient=mock)
-        self.assertEqual(None, searcher.get_symbol('haha'))
+        with requests_mock.Mocker() as m:
+            m.register_uri('GET', 'https://www.uniprot.org/uniprot/HAHA.txt',
+                           status_code='404', text=None)
+            self.assertEqual('', searcher.get_symbol('haha'))
 
         mock.query.assert_called_with('haha')
 
@@ -59,7 +95,10 @@ class TestGeneSymbolSearcher(unittest.TestCase):
         mock.query = MagicMock(return_value={'total': 1,
                                              'hits': []})
         searcher = GeneSymbolSearcher(bclient=mock)
-        self.assertEqual(None, searcher.get_symbol('haha'))
+        with requests_mock.Mocker() as m:
+            m.register_uri('GET', 'https://www.uniprot.org/uniprot/HAHA.txt',
+                           status_code='404', text=None)
+            self.assertEqual('', searcher.get_symbol('haha'))
 
         mock.query.assert_called_with('haha')
 
@@ -96,3 +135,34 @@ class TestGeneSymbolSearcher(unittest.TestCase):
         self.assertEqual('TP53', searcher.get_symbol('tp53'))
         self.assertEqual('TP53', searcher.get_symbol('tp53'))
         mock.query.assert_called_once_with('tp53')
+
+    def test_query_uniprot(self):
+        mock = MagicMock()
+        mock.query = MagicMock(return_value={'total': 0,
+                                             'hits': []})
+        searcher = GeneSymbolSearcher(bclient=mock)
+        with requests_mock.Mocker() as m:
+            m.register_uri('GET', 'https://www.uniprot.org/uniprot/HAHA.txt',
+                           status_code='200', text="""ID   BXA1_CLOBO              Reviewed;        1296 AA.
+AC   P0DPI0; A5HZZ9; A7G1U9; P01561; P10845; P18639;
+DT   18-JUL-2018, integrated into UniProtKB/Swiss-Prot.
+DT   18-JUL-2018, sequence version 1.
+DT   08-MAY-2019, entry version 9.
+DE   RecName: Full=Botulinum neurotoxin type A;
+DE            Short=BoNT/A;
+DE   AltName: Full=Bontoxilysin-A;
+DE            Short=BOTOX;
+DE   AltName: Full=Botulinum neurotoxin type A1;
+DE   Contains:
+DE     RecName: Full=Botulinum neurotoxin A light chain;
+DE              Short=LC;
+DE              EC=3.4.24.69 {ECO:0000269|PubMed:8243676};
+DE   Contains:
+DE     RecName: Full=Botulinum neurotoxin A heavy chain;
+DE              Short=HC;
+DE   Flags: Precursor;
+GN   Name=botA {ECO:0000303|PubMed:2185020};
+GN   Synonyms=atx {ECO:0000303|PubMed:8521962},
+GN   bonT {ECO:0000303|PubMed:8863443};
+OS   Clostridium botulinum.""")
+            self.assertEqual('botA', searcher.get_symbol('haha'))

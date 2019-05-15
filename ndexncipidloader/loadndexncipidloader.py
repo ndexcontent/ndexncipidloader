@@ -466,7 +466,6 @@ class GeneSymbolSearcher(object):
                                   re.sub(' .*', '',
                                          re.sub('^GN.*Name=',
                                                 '', entry)))
-                    break
         return None
 
     def get_symbol(self, val):

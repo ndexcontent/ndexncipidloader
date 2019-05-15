@@ -16,13 +16,84 @@ NDEx NCI-PID content loader
 
 Python application that loads NCI-PID data into NDEx_
 
-This tool parses
+This tool downloads OWL_ files containing NCI-PID data from: ftp://ftp.ndexbio.org/NCI_PID_BIOPAX_2016-06-08-PC2v8-API/
+and performs the following operations:
 
+1) OWL files are converted to extended SIF_ format using Paxtools_ and the SIF_ file is loaded into a network
+
+2) A node attribute named **type** is added to each node and is set to one of the following
+   by extracting its value from **PARTICIPANT_TYPE** column in SIF_ file:
+
+* **protein** (originally ProteinReference)
+
+* **smallmolecule** (originally SmallMoleculeReference)
+
+* **proteinfamily** (set if node name has **family** and was a **protein**)
+
+* **RnaReference** (original value)
+
+* **ProteinReference;SmallMoleculeReference** (original value)
+
+3) A node attribute named **alias** is added to each node and is loaded from **UNIFICATION_XREF**
+column in SIF_ file which is split by `;` into a list. Each element of this list is prefixed with **uniprot:** and t first element is set as the
+**represents** value in node and removed from the **alias** attribute. If after
+removal, the **alias** attribute value is empty, it is removed.
+
+4) In SIF_ file **INTERACTION_TYPE** defines edge interaction type and **INTERACTION_PUBMED_ID** define
+value of **citation** edge attribute. The values in **citation** edge attribute are
+prefixed with **pubmed:** Once loaded redundant edges are removed
+following these conventions:
+
+* **neighbor-of** edges are removed if they contain no unique citations and an edge of another type exists
+
+* **controls-state-change-map** edges are removed if they contain no unique citations and an edge of type other then **neighbor-of** exists
+
+* **Special case:** After network has been updated following previous two conditions and there exists a **neighbor-of** edge with citations and **one** other edge exists with **no** citations, the citations from **neighbor-of** are added to the other edge and the **neighbor-of** edge is removed
+
+5) An edge attribute named **directed** is set to **True** if edge interaction type is one of the following (otherwise its set to **False**)
+
+.. code-block::
+
+    controls-state-change-of
+    controls-transport-of
+    controls-phosphorylation-of
+    controls-expression-of
+    catalysis-precedes
+    controls-production-of
+    controls-transport-of-chemical
+    chemical-affects
+    used-to-produce
+
+6) If node name matches **represents** value in node (with **uniprot:** prefix added) then the node name is replaced with gene symbol from `gene_symbol_mapping.json`_
+
+7) If node name starts with **CHEBI** then node name is replaced with value of **PARTICIPANT_NAME** from SIF_ column
+
+8) If node **represents** value starts with **chebi:CHEBI** the **chebi:** is removed
+
+9) If **_HUMAN** in SIF_ file **PARTICIPANT_NAME** column for a given node then this value is replaced by doing a lookup in `gene_symbol_mapping.json`_, unless value in lookup is **-** in which case original name is left
+
+10) Any node with **family** node name is changed as follows if a lookup of node name against **gene_symbol_mapping.json** returns one or more genes
+
+* Node attribute named **member** is added and set to list of genes found in lookup in `gene_symbol_mapping.json`_
+* Node attribute named **type** is changed to **proteinfamily**
+
+11) The following network attributes are set
+
+* **name** set to name of OWL_ file with **.owl.gz** suffix removed
+* **author** (from **Curated By** column in `networkattributes.tsv`_)
+* **labels** (from **PID** column in `networkattributes.tsv`_)
+* **organism** is pulled from **organism** attribute of `style.cx`_
+* **prov:wasGeneratedBy** is set to ndexncipidloader <VERSION> (example: ndexncipidloader 1.0.0)
+* **prov:wasDerivedFrom** is set to full path to OWL_ file on ftp site
+* **reviewers** (from **Reviewed By** column in `networkattributes.tsv`_)
+* **version** is set to Abbreviated month-year (example: MAY-2019)
+* **description** is pulled from **description** attribute of `style.cx`_
+* **__normalizationversion** is pulled from **__normalizationversion** attribute of `style.cx`_
 
 Tools
 -----
 
-* **loadndexncipidloader.py** -- Loads NCI-PID networks from OWL or SIF files to NDEx_
+* **loadndexncipidloader.py** -- Loads NCI-PID networks from OWL files to NDEx_
 
 Dependencies
 ------------
@@ -79,34 +150,14 @@ The default path for this configuration is :code:`~/.ndexutils.conf` but can be 
     server = dev.ndexbio.org
 
 
-Needed files
-------------
+Required external tool
+-----------------------
 
-Several steps of processing are needed to generate the SIF files.
+Paxtools is needed to convert the OWL files to SIF format.
 
-**TODO:** Add a script this tool to generate these SIF files
-
-1) Download **owl.gz** files from: ftp://ftp.ndexbio.org/NCI_PID_BIOPAX_2016-06-08-PC2v8-API/
-
-2) Gunzip **.owl** files
-
-3) Download paxtools.jar (http://www.biopax.org/Paxtools/) (requires Java 8+)
-
-4) Run the following command for each **.owl** file putting **.sif** files in a directory by themselves:
-
-.. code-block::
-
-    java -jar paxtools.jar toSIF <INPUT OWL FILE> <INPUT OWL FILE WITH .owl replaced with .sif> \
-             "seqDb=hgnc,uniprot,refseq,ncbi,entrez,ensembl" \
-             "chemDb=chebi,pubchem" -useNameIfNoId -extended
-
-
-Files for :code:`--genesymbol, --networkattrib, --style, --loadplan` flags can be found in the **ndexncipidloader/** subdirectory
-of this repository.
-
-* **networkattributes.tsv** appears to be a tab delimited export of `this excel file <https://github.com/NCIP/pathway-interaction-database/blob/master/download/NCI-Pathway-Info.xlsx>`_
-* **gene_symbol_mapping.json** appears to have come from a previous run of ncipid processing with `this script <https://github.com/ndexbio/ndexutils/blob/master/ndexutil/ebs/ebs2cx.py>`_
-* **style.cx** normalized style to use
+Please download **paxtools.jar** (http://www.biopax.org/Paxtools/) (requires Java 8+) and
+put in current working directory or specify path to **paxtools.jar** with `--paxtools` flag on
+**loadnexncipidloader.py**
 
 Usage
 -----
@@ -151,3 +202,10 @@ This package was created with Cookiecutter_ and the `audreyr/cookiecutter-pypack
 .. _Cookiecutter: https://github.com/audreyr/cookiecutter
 .. _`audreyr/cookiecutter-pypackage`: https://github.com/audreyr/cookiecutter-pypackage
 .. _NDEx: http://www.ndexbio.org
+.. _OWL: https://en.wikipedia.org/wiki/Web_Ontology_Language
+.. _Paxtools: https://www.biopax.org/Paxtools
+.. _SIF: https://bioconductor.org/packages/release/bioc/vignettes/paxtoolsr/inst/doc/using_paxtoolsr.html#extended-simple-interaction-format-sif-network
+.. _uniprot: https://www.uniprot.org/
+.. _gene_symbol_mapping.json: https://github.com/ndexcontent/ndexncipidloader/blob/master/ndexncipidloader/gene_symbol_mapping.json
+.. _networkattributes.tsv: https://github.com/ndexcontent/ndexncipidloader/blob/master/ndexncipidloader/networkattributes.tsv
+.. _style.cx: https://github.com/ndexcontent/ndexncipidloader/blob/master/ndexncipidloader/style.cx

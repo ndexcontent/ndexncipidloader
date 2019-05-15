@@ -16,7 +16,7 @@ NDEx NCI-PID content loader
 
 Python application that loads NCI-PID data into NDEx_
 
-This tool downloads OWL_ files containing NCI-PID data from: `ftp.ndexbio.org`_
+This tool downloads OWL_ files containing NCI-PID data from: ftp://ftp.ndexbio.org/NCI_PID_BIOPAX_2016-06-08-PC2v8-API/
 and performs the following operations:
 
 1) OWL files are converted to extended SIF_ format using Paxtools_ and the SIF_ file is loaded into a network
@@ -209,4 +209,3 @@ This package was created with Cookiecutter_ and the `audreyr/cookiecutter-pypack
 .. _gene_symbol_mapping.json: https://github.com/ndexcontent/ndexncipidloader/blob/master/ndexncipidloader/gene_symbol_mapping.json
 .. _networkattributes.tsv: https://github.com/ndexcontent/ndexncipidloader/blob/master/ndexncipidloader/networkattributes.tsv
 .. _style.cx: https://github.com/ndexcontent/ndexncipidloader/blob/master/ndexncipidloader/style.cx
-.. _ftp.ndexbio.org: ftp://ftp.ndexbio.org/NCI_PID_BIOPAX_2016-06-08-PC2v8-API

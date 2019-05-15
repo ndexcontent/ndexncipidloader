@@ -10,15 +10,21 @@ import shutil
 import unittest
 import mock
 from mock import MagicMock
+from ndex2.nice_cx_network import NiceCXNetwork
 
+import ndexncipidloader
 from ndexncipidloader.loadndexncipidloader import NDExNciPidLoader
+from ndexncipidloader.loadndexncipidloader import NetworkIssueReport
 from ndexutil.config import NDExUtilConfig
 from ndexncipidloader import loadndexncipidloader
+
+
 class Param(object):
     """
     Dummy object
     """
     pass
+
 
 class TestNDExNciPidLoader(unittest.TestCase):
     """Tests for `NDExNciPidLoader` class."""
@@ -89,4 +95,40 @@ class TestNDExNciPidLoader(unittest.TestCase):
                          loader._normalize_context_prefixes('UniProt:'
                                                             'yo'))
 
+    def test_set_wasderivedfrom(self):
+        net = NiceCXNetwork()
+        net.set_name('foo')
+        loader = NDExNciPidLoader(None)
+        loader._set_wasderivedfrom(net)
+        derived_attr = loadndexncipidloader.DERIVED_BY_ATTRIB
+        self.assertEqual('<a href="ftp://' +
+                         loadndexncipidloader.DEFAULT_FTP_HOST +
+                         '/' + loadndexncipidloader.DEFAULT_FTP_DIR + '/' +
+                         'foo.owl.gz">foo.owl.gz</a>',
+                         net.get_network_attribute(derived_attr)['v'])
 
+    def test_set_normalizationversion(self):
+        net = NiceCXNetwork()
+        net.set_name('foo')
+        loader = NDExNciPidLoader(None)
+        loader._set_normalization_version(net)
+        norm_attr = loadndexncipidloader.NORMALIZATIONVERSION_ATTRIB
+        self.assertEqual('0.1',
+                         net.get_network_attribute(norm_attr)['v'])
+
+    def test_set_generatedby_in_network_attributes(self):
+        net = NiceCXNetwork()
+        net.set_name('foo')
+        loader = NDExNciPidLoader(None)
+        loader._set_generatedby_in_network_attributes(net)
+        norm_attr = loadndexncipidloader.GENERATED_BY_ATTRIB
+        self.assertTrue(' ' + str(ndexncipidloader.__version__) in
+                        net.get_network_attribute(norm_attr)['v'])
+
+    def test_add_node_types_in_network_to_report_empty_network(self):
+        loader = NDExNciPidLoader(None)
+        report = NetworkIssueReport('foo')
+        net = NiceCXNetwork()
+        net.set_name('foo')
+        loader._add_node_types_in_network_to_report(net, report)
+        self.assertEqual(set(), report.get_nodetypes())

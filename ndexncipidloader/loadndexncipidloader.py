@@ -72,10 +72,16 @@ Participant name node attribute
 """
 
 GENERATED_BY_ATTRIB = 'prov:wasGeneratedBy'
+"""
+Network attribute to denote what created this network
+"""
 
+DERIVED_BY_ATTRIB = 'prov:wasDerivedBy'
+"""
+Network attribute to denote source of network data
+"""
 
 NORMALIZATIONVERSION_ATTRIB = '__normalizationversion'
-
 
 LOAD_PLAN = 'loadplan.json'
 """
@@ -1876,6 +1882,9 @@ class NDExNciPidLoader(object):
         # set normalization version for network
         self._set_normalization_version(network)
 
+        # set was derived from
+        self._set_wasderivedfrom(network)
+
         # set common attributes from style network
         issues = self._set_network_attributes_from_style_network(network)
         report.addissues('Setting description and organism network attributes', issues)
@@ -1985,7 +1994,12 @@ class NDExNciPidLoader(object):
         :type :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
         :return: None
         """
-        network.set_network_attribute(GENERATED_BY_ATTRIB, 'ndexncipidloader ' + str(ndexncipidloader.__version__))
+        network.set_network_attribute(GENERATED_BY_ATTRIB,
+                                      '<a href="https://github.com/'
+                                      'ndexcontent/ndexncipidloader"'
+                                      '>ndexncipidloader ' +
+                                      str(ndexncipidloader.__version__) +
+                                      '</a>')
 
     def _set_normalization_version(self, network):
         """
@@ -1996,6 +2010,25 @@ class NDExNciPidLoader(object):
         :return: None
         """
         network.set_network_attribute(NORMALIZATIONVERSION_ATTRIB, '0.1')
+
+    def _set_wasderivedfrom(self, network):
+        """
+        Sets the 'prov:wasDerivedBy' network attribute to the
+        ftp location containing the OWL file for this network.
+        The ftp information is pulled from :py:const:`DEFAULT_FTP_HOST` and
+         :py:const:`DEFAULT_FTP_DIR` and the owl file name is the
+         name of the network with .owl.gz appended
+
+        :param network: network to add attribute
+        :type :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
+        :return: None
+        """
+        network.set_network_attribute(DERIVED_BY_ATTRIB,
+                                      '<a href="'
+                                      'ftp://' + DEFAULT_FTP_HOST +
+                                      '/' + DEFAULT_FTP_DIR + '/' +
+                                      network.get_name() + '.owl.gz">' +
+                                      network.get_name() + '.owl.gz</a>')
 
     def _get_user_agent(self):
         """

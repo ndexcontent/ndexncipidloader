@@ -5,7 +5,8 @@
         "uniprot": "http://identifiers.org/uniprot/",
         "cas": "http://identifiers.org/cas/",
         "kegg.compound": "http://identifiers.org/kegg.compound/",
-        "hprd": "http://identifiers.org/hprd/"
+        "hprd": "http://identifiers.org/hprd/",
+        "hgnc.symbol": "http://identifiers.org/hgnc.symbol/"
     },
     "source_plan":
     {

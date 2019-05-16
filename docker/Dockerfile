@@ -13,10 +13,6 @@ RUN rm -rf /tmp/ndexncipidloader
 RUN mkdir /ndexncipidloader
 WORKDIR /ndexncipidloader
 
-COPY data/loadplan.json /ndexncipidloader/
-COPY data/netattrib.tsv /ndexncipidloader/
-COPY data/gene_symbol_mapping.json /ndexncipidloader/
-COPY data/style.cx /ndexncipidloader/
 COPY docker/README.txt /ndexncipidloader/
 
 CMD /bin/cat /ndexncipidloader/README.txt

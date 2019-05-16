@@ -168,7 +168,7 @@ This example assumes a valid configuration file with paxtools.jar in the working
 
 .. code-block::
 
-   loadncipidloader.py sif
+   loadndexncipidloader.py sif
 
 **Example usage with sif files already downloaded**
 
@@ -176,7 +176,7 @@ This example assumes a valid configuration file and the SIF files are located in
 
 .. code-block::
 
-   loadncipidloader.py --skipdownload sif
+   loadndexncipidloader.py --skipdownload sif
 
 
 Via Docker
@@ -189,7 +189,7 @@ file has been created in current working directory and named :code:`conf`
 
 .. code-block::
 
-   docker run -v `pwd`:`pwd` -w `pwd` coleslawndex/ndexncipidloader:1.0.0 loadncipidloader.py --conf conf sif
+   docker run -v `pwd`:`pwd` -w `pwd` coleslawndex/ndexncipidloader:1.0.0 loadndexncipidloader.py --conf conf sif
 
 
 Credits

@@ -1871,7 +1871,7 @@ class NDExNciPidLoader(object):
         network.apply_style_from_network(self._template)
 
         # set the version in the network
-        self._set_version_in_network_attributes(network_update_key, network)
+        self._set_version_in_network_attributes(network)
 
         # set provenance for network
         self._set_generatedby_in_network_attributes(network)
@@ -1965,23 +1965,13 @@ class NDExNciPidLoader(object):
             issues.append('organism network attribute not set cause its '
                           'missing from template network')
 
-    def _set_version_in_network_attributes(self, network_update_key, network):
+    def _set_version_in_network_attributes(self, network):
         """
         :param network_update_key:
         :param network:
         :return:
         """
-        version_set = False
-        if network_update_key is not None:
-            network_properties = self._get_network_properties(network_update_key)
-            for k, v in network_properties.items():
-                if k.upper() == 'VERSION':
-                    network.set_network_attribute('version', self._args.releaseversion)
-                    version_set = True
-                else:
-                    network.set_network_attribute(k, v)
-        if version_set is False:
-            network.set_network_attribute('version', self._args.releaseversion)
+        network.set_network_attribute('version', self._args.releaseversion)
 
     def _set_generatedby_in_network_attributes(self, network):
         """

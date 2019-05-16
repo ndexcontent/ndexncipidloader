@@ -189,7 +189,7 @@ file has been created in current working directory and named :code:`conf`
 
 .. code-block::
 
-   docker run -v `pwd`:`pwd` -w `pwd` coleslawndex/ndexncipidloader:0.1.0 loadndexncipidloader.py --conf conf sif
+   docker run -v `pwd`:`pwd` -w `pwd` coleslawndex/ndexncipidloader:1.0.0 loadndexncipidloader.py --conf conf sif
 
 
 Credits

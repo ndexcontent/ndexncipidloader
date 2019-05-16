@@ -6,8 +6,11 @@ NDEx NCI-PID content loader
 .. image:: https://img.shields.io/pypi/v/ndexncipidloader.svg
         :target: https://pypi.python.org/pypi/ndexncipidloader
 
-.. image:: https://img.shields.io/travis/coleslaw481/ndexncipidloader.svg
-        :target: https://travis-ci.org/coleslaw481/ndexncipidloader
+.. image:: https://img.shields.io/travis/ndexcontent/ndexncipidloader.svg
+        :target: https://travis-ci.org/ndexcontent/ndexncipidloader
+
+.. image:: https://coveralls.io/repos/github/ndexcontent/ndexncipidloader/badge.svg?branch=master
+        :target: https://coveralls.io/github/ndexcontent/ndexncipidloader?branch=master
 
 .. image:: https://readthedocs.org/projects/ndexncipidloader/badge/?version=latest
         :target: https://ndexncipidloader.readthedocs.io/en/latest/?badge=latest

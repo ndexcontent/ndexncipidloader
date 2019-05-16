@@ -22,9 +22,9 @@ Python application that loads NCI-PID data into NDEx_
 This tool downloads OWL_ files containing NCI-PID data from: ftp://ftp.ndexbio.org/NCI_PID_BIOPAX_2016-06-08-PC2v8-API/
 and performs the following operations:
 
-1) OWL files are converted to extended SIF_ format using Paxtools_ and the SIF_ file is loaded into a network
+**1\)** OWL files are converted to extended SIF_ format using Paxtools_ and the SIF_ file is loaded into a network
 
-2) A node attribute named **type** is added to each node and is set to one of the following
+**2\)** A node attribute named **type** is added to each node and is set to one of the following
    by extracting its value from **PARTICIPANT_TYPE** column in SIF_ file:
 
 * **protein** (originally ProteinReference)
@@ -37,12 +37,12 @@ and performs the following operations:
 
 * **ProteinReference;SmallMoleculeReference** (original value)
 
-3) A node attribute named **alias** is added to each node and is loaded from **UNIFICATION_XREF**
+**3\)** A node attribute named **alias** is added to each node and is loaded from **UNIFICATION_XREF**
 column in SIF_ file which is split by `;` into a list. Each element of this list is prefixed with **uniprot:** and t first element is set as the
 **represents** value in node and removed from the **alias** attribute. If after
 removal, the **alias** attribute value is empty, it is removed.
 
-4) In SIF_ file **INTERACTION_TYPE** defines edge interaction type and **INTERACTION_PUBMED_ID** define
+**4\)** In SIF_ file **INTERACTION_TYPE** defines edge interaction type and **INTERACTION_PUBMED_ID** define
 value of **citation** edge attribute. The values in **citation** edge attribute are
 prefixed with **pubmed:** Once loaded redundant edges are removed
 following these conventions:
@@ -53,7 +53,7 @@ following these conventions:
 
 * **Special case:** After network has been updated following previous two conditions and there exists a **neighbor-of** edge with citations and **one** other edge exists with **no** citations, the citations from **neighbor-of** are added to the other edge and the **neighbor-of** edge is removed
 
-5) An edge attribute named **directed** is set to **True** if edge interaction type is one of the following (otherwise its set to **False**)
+**5\)** An edge attribute named **directed** is set to **True** if edge interaction type is one of the following (otherwise its set to **False**)
 
 .. code-block::
 
@@ -67,20 +67,20 @@ following these conventions:
     chemical-affects
     used-to-produce
 
-6) If node name matches **represents** value in node (with **uniprot:** prefix added) then the node name is replaced with gene symbol from `gene_symbol_mapping.json`_
+**6\)** If node name matches **represents** value in node (with **uniprot:** prefix added) then the node name is replaced with gene symbol from `gene_symbol_mapping.json`_
 
-7) If node name starts with **CHEBI** then node name is replaced with value of **PARTICIPANT_NAME** from SIF_ column
+**7\)** If node name starts with **CHEBI** then node name is replaced with value of **PARTICIPANT_NAME** from SIF_ column
 
-8) If node **represents** value starts with **chebi:CHEBI** the **chebi:** is removed
+**8\)** If node **represents** value starts with **chebi:CHEBI** the **chebi:** is removed
 
-9) If **_HUMAN** in SIF_ file **PARTICIPANT_NAME** column for a given node then this value is replaced by doing a lookup in `gene_symbol_mapping.json`_, unless value in lookup is **-** in which case original name is left
+**9\)** If **_HUMAN** in SIF_ file **PARTICIPANT_NAME** column for a given node then this value is replaced by doing a lookup in `gene_symbol_mapping.json`_, unless value in lookup is **-** in which case original name is left
 
-10) Any node with **family** node name is changed as follows if a lookup of node name against **gene_symbol_mapping.json** returns one or more genes
+**10\)** Any node with **family** node name is changed as follows if a lookup of node name against **gene_symbol_mapping.json** returns one or more genes
 
 * Node attribute named **member** is added and set to list of genes found in lookup in `gene_symbol_mapping.json`_
 * Node attribute named **type** is changed to **proteinfamily**
 
-11) The following network attributes are set
+**11\)** The following network attributes are set
 
 * **name** set to name of OWL_ file with **.owl.gz** suffix removed
 * **author** (from **Curated By** column in `networkattributes.tsv`_)

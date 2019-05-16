@@ -184,12 +184,12 @@ Via Docker
 
 **Example usage**
 
-This example assumes files SIF files are in the :code:`sif/` directory, and a configuration
+This example **paxtools.jar** is in current directory, and a configuration
 file has been created in current working directory and named :code:`conf`
 
 .. code-block::
 
-   docker run -v `pwd`:`pwd` -w `pwd` coleslawndex/ndexncipidloader:1.0.0 loadndexncipidloader.py --conf conf sif
+   docker run -v `pwd`:`pwd` -w `pwd` coleslawndex/ndexncipidloader:1.0.0 loadndexncipidloader.py --paxtools `pwd`/paxtools.jar --conf conf sif
 
 
 Credits

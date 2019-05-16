@@ -226,6 +226,10 @@ def _parse_arguments(desc, args):
                         help='If set, skips gene symbol checker that'
                              'examines all nodes of type protein'
                              'and verifies they are symbols')
+    parser.add_argument('--disablcitededgemerge', action='store_true',
+                        help='If set, keeps neighbor-of edges if they ' +
+                             'contain citations not found in more' +
+                             'descriptive edge')
     parser.add_argument('--getfamilies', action='store_true',
                         help='If set, code examines owl files and generates '
                              'mapping of protein families')
@@ -926,11 +930,18 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
     """
     CITATION = 'citation'
 
-    def __init__(self):
+    def __init__(self,
+                 disablcitededgemerge=False):
         """
-        Constructor
+
+        :param disablcitededgemerge: If True then merging of neighbor-of
+                                     edge citations to more descriptive
+                                     edges is NOT done (default False)
+        :type disablcitededgemerge: bool
+
         """
         super(RedundantEdgeAdjudicator, self).__init__()
+        self._disablecitededgemerge = disablcitededgemerge
 
     def get_description(self):
         """
@@ -1064,7 +1075,7 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
         for other_edge in other_edgeids:
             o_attr = network.get_edge_attribute(other_edge,
                                                 RedundantEdgeAdjudicator.CITATION)
-            logger.warning('This merge citations for ticket NSU-92 is still broken. Fix me')
+            logger.warning('other edge: ' + str(other_edge) + ' => ' + str(o_attr))
             if o_attr == (None, None):
                 if mergecitations is False:
                     continue
@@ -1162,6 +1173,12 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
         self._remove_redundant_edges(network,
                                      controls_state_change_map,
                                      other_edge_exists)
+
+        # If true do NOT merge neighbor-of edges
+        # with annotations to more descriptive edges
+        if self._disablecitededgemerge is True:
+            logger.info('Merging of neighbor-of citations DISABLED')
+            return []
 
         (neighbor_of_map, controls_state_change_map,
          other_edge_exists) = self._build_edge_map(network)
@@ -2322,9 +2339,9 @@ def main(args):
         searcher = GeneSymbolSearcher()
         updators = [NodeTypeUpdator(),
                     NodeAliasUpdator(),
-                    RedundantEdgeAdjudicator(),
-                    DirectedEdgeSetter(),
                     EmptyCitationAttributeRemover(),
+                    RedundantEdgeAdjudicator(disablcitededgemerge=theargs.disablcitededgemerge),
+                    DirectedEdgeSetter(),
                     UniProtToGeneSymbolUpdater(searcher=searcher),
                     CHEBINodeNameReplacer(),
                     CHEBINodeRepresentsPrefixRemover(),

@@ -193,6 +193,28 @@ class TestRedundantEdgeAdjudicator(unittest.TestCase):
         adjud._remove_if_redundant(net, nid, [cid])
         self.assertEqual(None, net.get_edge(nid))
 
+    def test_remove_if_redundant_mergecitations_true(self):
+        net = NiceCXNetwork()
+        adjud = RedundantEdgeAdjudicator()
+        nid = net.create_edge(edge_source=0, edge_target=1,
+                              edge_interaction='neighbor-of')
+
+        net.set_edge_attribute(nid,
+                               RedundantEdgeAdjudicator.CITATION,
+                               ['pubmed:4', 'pubmed:123'],
+                               type='list_of_string')
+
+        cid = net.create_edge(edge_source=0, edge_target=1,
+                              edge_interaction='controls-state-change-of')
+
+        self.assertEqual('neighbor-of', net.get_edge(nid)['i'])
+        adjud._remove_if_redundant(net, nid, [cid], mergecitations=True)
+        self.assertEqual(None, net.get_edge(nid))
+        res = net.get_edge_attribute(cid,
+                                     RedundantEdgeAdjudicator.CITATION)
+        res['v'].sort()
+        self.assertEqual(['pubmed:123','pubmed:4'], res['v'])
+
     def test_remove_if_redundant_with_multiple_edges_same_citations(self):
         net = NiceCXNetwork()
         adjud = RedundantEdgeAdjudicator()
@@ -201,7 +223,7 @@ class TestRedundantEdgeAdjudicator(unittest.TestCase):
 
         net.set_edge_attribute(nid,
                                RedundantEdgeAdjudicator.CITATION,
-                               ['pubmed:4','pubmed:123'],
+                               ['pubmed:4', 'pubmed:123'],
                                type='list_of_string')
 
         cid = net.create_edge(edge_source=0, edge_target=1,
@@ -255,4 +277,64 @@ class TestRedundantEdgeAdjudicator(unittest.TestCase):
         self.assertEqual(None, net.get_edge(nid))
         self.assertEqual(None, net.get_edge(cid))
         self.assertEqual('someother', net.get_edge(oid)['i'])
+
+    def test_basic_network_where_neighbor_of_citations_merges(self):
+        net = NiceCXNetwork()
+        adjud = RedundantEdgeAdjudicator()
+        nid = net.create_edge(edge_source=0, edge_target=1,
+                              edge_interaction='neighbor-of')
+
+        net.set_edge_attribute(nid,
+                               RedundantEdgeAdjudicator.CITATION,
+                               ['pubmed:5'], type='list_of_string')
+        cid = net.create_edge(edge_source=0, edge_target=1,
+                              edge_interaction='controls-state-change-of')
+
+        oid = net.create_edge(edge_source=0, edge_target=1,
+                              edge_interaction='someother')
+
+        self.assertEqual('neighbor-of', net.get_edge(nid)['i'])
+        self.assertEqual('controls-state-change-of', net.get_edge(cid)['i'])
+        self.assertEqual('someother', net.get_edge(oid)['i'])
+
+        self.assertEqual([], adjud.update(net))
+        self.assertEqual(None, net.get_edge(nid))
+        self.assertEqual(None, net.get_edge(cid))
+        self.assertEqual('someother', net.get_edge(oid)['i'])
+        res = net.get_edge_attribute(oid,
+                                     RedundantEdgeAdjudicator.CITATION)
+        res['v'].sort()
+        self.assertEqual(['pubmed:5'], res['v'])
+
+    def test_basic_network_where_neighbor_of_citations_merges_disabled(self):
+        net = NiceCXNetwork()
+        adjud = RedundantEdgeAdjudicator(disablcitededgemerge=True)
+        nid = net.create_edge(edge_source=0, edge_target=1,
+                              edge_interaction='neighbor-of')
+
+        net.set_edge_attribute(nid,
+                               RedundantEdgeAdjudicator.CITATION,
+                               ['pubmed:5'], type='list_of_string')
+        cid = net.create_edge(edge_source=0, edge_target=1,
+                              edge_interaction='controls-state-change-of')
+
+        oid = net.create_edge(edge_source=0, edge_target=1,
+                              edge_interaction='someother')
+
+        self.assertEqual('neighbor-of', net.get_edge(nid)['i'])
+        self.assertEqual('controls-state-change-of', net.get_edge(cid)['i'])
+        self.assertEqual('someother', net.get_edge(oid)['i'])
+
+        self.assertEqual([], adjud.update(net))
+        self.assertEqual('neighbor-of', net.get_edge(nid)['i'])
+        self.assertEqual(None, net.get_edge(cid))
+        self.assertEqual('someother', net.get_edge(oid)['i'])
+        res = net.get_edge_attribute(nid,
+                                     RedundantEdgeAdjudicator.CITATION)
+        res['v'].sort()
+        self.assertEqual(['pubmed:5'], res['v'])
+        res = net.get_edge_attribute(oid,
+                                     RedundantEdgeAdjudicator.CITATION)
+
+        self.assertEqual((None, None), res)
 

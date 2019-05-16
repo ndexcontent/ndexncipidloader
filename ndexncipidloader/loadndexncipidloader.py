@@ -2259,8 +2259,8 @@ def main(args):
     Loads NDEx NCI-PID content data into NDEx (http://ndexbio.org)
     using SIF files as input. This tool downloads
     OWL files from an FTP site (default {ftphost} under
-    {ftpdir} directory) and convert them to SIF files using the 
-    paxtools.jar program residing in a directory set via --paxtools flag.      
+    {ftpdir} directory) and converts them to SIF files using the 
+    paxtools.jar whose location is set via --paxtools flag.      
     
     In order for this tool to upload data to NDEx, a configuration file 
     must either reside here ~/{confname} or be set via --conf parameter. 

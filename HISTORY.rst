@@ -2,6 +2,12 @@
 History
 =======
 
+1.0.1 (2019-05-18)
+------------------
+
+* Renamed incorrect attribute name prov:wasDerivedBy to prov:wasDerivedFrom
+  to adhere to normalization document requirements
+ 
 1.0.0 (2019-05-16)
 ------------------
 

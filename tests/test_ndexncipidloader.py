@@ -100,7 +100,7 @@ class TestNDExNciPidLoader(unittest.TestCase):
         net.set_name('foo')
         loader = NDExNciPidLoader(None)
         loader._set_wasderivedfrom(net)
-        derived_attr = loadndexncipidloader.DERIVED_BY_ATTRIB
+        derived_attr = loadndexncipidloader.DERIVED_FROM_ATTRIB
         self.assertEqual('<a href="ftp://' +
                          loadndexncipidloader.DEFAULT_FTP_HOST +
                          '/' + loadndexncipidloader.DEFAULT_FTP_DIR + '/' +

@@ -76,7 +76,7 @@ GENERATED_BY_ATTRIB = 'prov:wasGeneratedBy'
 Network attribute to denote what created this network
 """
 
-DERIVED_BY_ATTRIB = 'prov:wasDerivedBy'
+DERIVED_FROM_ATTRIB = 'prov:wasDerivedFrom'
 """
 Network attribute to denote source of network data
 """
@@ -2010,7 +2010,7 @@ class NDExNciPidLoader(object):
         :type :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
         :return: None
         """
-        network.set_network_attribute(DERIVED_BY_ATTRIB,
+        network.set_network_attribute(DERIVED_FROM_ATTRIB,
                                       '<a href="'
                                       'ftp://' + DEFAULT_FTP_HOST +
                                       '/' + DEFAULT_FTP_DIR + '/' +

@@ -812,7 +812,8 @@ class UniProtToGeneSymbolUpdater(NetworkUpdator):
 class DirectedEdgeSetter(NetworkUpdator):
     """
     Iterates through edges setting an edge
-    type 'directed' to True or False as described
+    type :py:const:`DirectedEdgeSetter.DIRECTED_ATTRIB` to
+    True or False as described
     below in :py:func:`update_edge_direction`
     """
     DIRECTED_ATTRIB = 'directed'
@@ -825,17 +826,19 @@ class DirectedEdgeSetter(NetworkUpdator):
 
     def get_description(self):
         """
-        Sets directed edge attribute
+        Sets :py:const:`DirectedEdgeSetter.DIRECTED_ATTRIB` edge attribute
+
         :return:
         """
-        return 'Sets directed edge attribute'
+        return 'Sets ' + DirectedEdgeSetter.DIRECTED_ATTRIB +\
+               ' edge attribute'
 
     def update(self, network):
         """
-        Examine all edges in network and if interaction is
-        in :py:const:`~DIRECTED_INTERACTIONS~ list
-        then the edge attribute 'directed'
-        is set to True otherwise it is set to False
+        Examine all edges in network and updates
+        :py:const:`DirectedEdgeSetter.DIRECTED_ATTRIB`
+        to True if existing value is 't' otherwise False
+
         :param network: network to update
         :type network: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
         :return: list of strings with any issues found
@@ -848,11 +851,11 @@ class DirectedEdgeSetter(NetworkUpdator):
             if v['i'] in DIRECTED_INTERACTIONS:
                 network.set_edge_attribute(k,
                                            DirectedEdgeSetter.DIRECTED_ATTRIB,
-                                           True)
+                                           True, type='boolean')
             else:
                 network.set_edge_attribute(k,
                                            DirectedEdgeSetter.DIRECTED_ATTRIB,
-                                           False)
+                                           False, type='boolean')
         return []
 
 

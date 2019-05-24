@@ -2,6 +2,13 @@
 History
 =======
 
+1.0.2 (2019-05-24)
+------------------
+
+* Removed view references from cyVisualProperties aspect of style.cx file cause it was causing issues with loading in cytoscape
+
+* Set directed edge attribute type to boolean cause it was incorrectly defaulting to a string
+
 1.0.1 (2019-05-18)
 ------------------
 

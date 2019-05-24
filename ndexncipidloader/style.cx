@@ -9766,8 +9766,6 @@
 }, {
   "cyVisualProperties" : [ {
     "properties_of" : "network",
-    "applies_to" : 465,
-    "view" : 465,
     "properties" : {
       "NETWORK_ANNOTATION_SELECTION" : "false",
       "NETWORK_BACKGROUND_PAINT" : "#FFFFFF",
@@ -9784,8 +9782,6 @@
     }
   }, {
     "properties_of" : "nodes:default",
-    "applies_to" : 465,
-    "view" : 465,
     "properties" : {
       "COMPOUND_NODE_PADDING" : "10.0",
       "COMPOUND_NODE_SHAPE" : "ROUND_RECTANGLE",
@@ -9903,8 +9899,6 @@
     }
   }, {
     "properties_of" : "edges:default",
-    "applies_to" : 465,
-    "view" : 465,
     "properties" : {
       "EDGE_CURVED" : "true",
       "EDGE_LABEL_COLOR" : "#000000",

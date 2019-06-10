@@ -2,6 +2,12 @@
 History
 =======
 
+1.1.0 (2019-06-10)
+------------------
+
+* Adjusted network layout to be more compact, by reducing number of iterations in
+  spring layout algorithm as well as lowering the value of scale (JIRA ticket UD-360)
+
 1.0.2 (2019-05-24)
 ------------------
 

@@ -1817,10 +1817,19 @@ class NDExNciPidLoader(object):
         for edgetuple in my_networkx.edges(data=True):
             logger.info('Checking: ' + str(edgetuple))
 
+        if num_nodes < 10:
+            nodescale = num_nodes*20
+        elif num_nodes < 20:
+            nodescale = num_nodes*15
+        elif num_nodes < 100:
+            nodescale = num_nodes*10
+        else:
+            nodescale = num_nodes*5
+
         my_networkx.pos = nx.drawing.spring_layout(my_networkx,
                                                    k=1.0,
-                                                   scale=num_nodes * 50,
-                                                   iterations=50,
+                                                   scale=nodescale,
+                                                   iterations=10,
                                                    weight='weight', seed=10)
         cartesian_aspect = self._cartesian(my_networkx)
         network.set_opaque_aspect("cartesianLayout", cartesian_aspect)

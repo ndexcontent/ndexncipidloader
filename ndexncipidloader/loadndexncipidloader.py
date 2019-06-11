@@ -859,12 +859,11 @@ class DirectedEdgeSetter(NetworkUpdator):
         return []
 
 
-class EmptyCitationAttributeRemover(NetworkUpdator):
+class EmptyCitationAttributeUpdator(NetworkUpdator):
     """
     Iterates through all edges removing the citation
-    edge attribute if there isnt any citations
-    in the list or if the only citations are just
-    pubmed:
+    edge attribute removing any citations that are
+    just pubmed:
     """
 
     CITATION = 'citation'
@@ -873,7 +872,7 @@ class EmptyCitationAttributeRemover(NetworkUpdator):
         """
         Constructor
         """
-        super(EmptyCitationAttributeRemover, self).__init__()
+        super(EmptyCitationAttributeUpdator, self).__init__()
 
     def get_description(self):
         """
@@ -881,16 +880,14 @@ class EmptyCitationAttributeRemover(NetworkUpdator):
         :return: description as string
         :rtype: string
         """
-        return 'Removes edge attribute of type citation where' \
-               'there are no citations or citations are just' \
-               'pubmed:'
+        return 'Removes empty and pubmed: only entries in citation ' \
+               ' edge types'
 
     def update(self, network):
         """
         Iterates through all edges in network and examines
-        'citation' edge attribute. If the values for this
-        attribute are an empty list or a list of elements
-        with only 'pubmed:' then this attribute is removed
+        'citation' edge attribute. Any entries with
+        with only 'pubmed:' are removed
 
         :param network: network to update
         :type network: :py:class:`~ndex2.nice_cx_network.NiceCxNetwork`
@@ -899,30 +896,24 @@ class EmptyCitationAttributeRemover(NetworkUpdator):
         """
         if network is None:
             return ['Network is None']
-        citation = EmptyCitationAttributeRemover.CITATION
+        citation = EmptyCitationAttributeUpdator.CITATION
         for k, v in network.get_edges():
             edge_attr = network.get_edge_attribute(k,
                                                    citation)
             if edge_attr == (None, None):
+                network.set_edge_attribute(k, citation, values=[],
+                                           type='list_of_string')
                 continue
-            remove_edge = False
-            edge_data = edge_attr['v']
-            if len(edge_data) is 0:
-                remove_edge = True
-            else:
-                new_list = []
-                for entry in edge_data:
-                    if entry == '' or entry.strip() == 'pubmed:':
-                        continue
-                    new_list.append(entry)
-                if len(new_list) is 0:
-                    remove_edge = True
+
+            new_list = []
+            for entry in edge_attr['v']:
+                if entry == '' or entry.strip() == 'pubmed:':
+                    continue
+                new_list.append(entry)
 
             network.remove_edge_attribute(k, citation)
-
-            if remove_edge is False:
-                network.set_edge_attribute(k, citation, values=new_list,
-                                           type='list_of_string')
+            network.set_edge_attribute(k, citation, values=new_list,
+                                       type='list_of_string')
         return []
 
 
@@ -2341,7 +2332,7 @@ def main(args):
         searcher = GeneSymbolSearcher()
         updators = [NodeTypeUpdator(),
                     NodeAliasUpdator(),
-                    EmptyCitationAttributeRemover(),
+                    EmptyCitationAttributeUpdator(),
                     RedundantEdgeAdjudicator(disablcitededgemerge=theargs.disablcitededgemerge),
                     DirectedEdgeSetter(),
                     UniProtToGeneSymbolUpdater(searcher=searcher),

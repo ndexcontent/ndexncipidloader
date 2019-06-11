@@ -83,6 +83,8 @@ Network attribute to denote source of network data
 
 NORMALIZATIONVERSION_ATTRIB = '__normalizationversion'
 
+TYPE_ATTRIB = 'type'
+
 LOAD_PLAN = 'loadplan.json'
 """
 Name of file containing json load plan
@@ -1885,6 +1887,9 @@ class NDExNciPidLoader(object):
         # set was derived from
         self._set_wasderivedfrom(network)
 
+        # set type network attribute
+        self._set_type(network)
+
         # set common attributes from style network
         issues = self._set_network_attributes_from_style_network(network)
         report.addissues('Setting description and organism network attributes', issues)
@@ -2000,6 +2005,17 @@ class NDExNciPidLoader(object):
         :return: None
         """
         network.set_network_attribute(NORMALIZATIONVERSION_ATTRIB, '0.1')
+
+    def _set_type(self, network):
+        """
+        Sets the network attribute :py:const:`TYPE_ATTRIB`
+        with ['pathway']
+        :param network: network to add attribute
+        :type :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
+        :return: None
+        """
+        network.set_network_attribute(TYPE_ATTRIB, ['pathway'],
+                                      type='list_of_string')
 
     def _set_wasderivedfrom(self, network):
         """

@@ -86,12 +86,13 @@ following these conventions:
 * **author** (from **Curated By** column in `networkattributes.tsv`_)
 * **labels** (from **PID** column in `networkattributes.tsv`_)
 * **organism** is pulled from **organism** attribute of `style.cx`_
-* **prov:wasGeneratedBy** is set to ndexncipidloader <VERSION> (example: ndexncipidloader 1.0.0)
+* **prov:wasGeneratedBy** is set to html link to this repo with text ndexncipidloader <VERSION> (example: ndexncipidloader 1.2.0)
 * **prov:wasDerivedFrom** is set to full path to OWL_ file on ftp site
 * **reviewers** (from **Reviewed By** column in `networkattributes.tsv`_)
 * **version** is set to Abbreviated month-year (example: MAY-2019)
 * **description** is pulled from **description** attribute of `style.cx`_
-* **__normalizationversion** is pulled from **__normalizationversion** attribute of `style.cx`_
+* **type** is set to list of string with single entry **pathway**
+* **__normalizationversion** is set to 0.1
 
 Dependencies
 ------------

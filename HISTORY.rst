@@ -8,6 +8,9 @@ History
 * Code now adds a citation attribute to every edge even if there is no value
   in which case an empty list is set (JIRA ticket UD-360)
 
+* Added type network attribute and set it to ['pathway'] following normalization
+  guidelines
+
 1.1.0 (2019-06-10)
 ------------------
 

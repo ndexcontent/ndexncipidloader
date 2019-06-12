@@ -817,7 +817,7 @@
     "v" : "style.cx"
   }, {
     "n" : "description",
-    "v" : "Derived from the latest BioPAX3 version of the Pathway Interaction Database (PID) curated by NCI/Nature. The BioPAX was first converted to Extended Binary SIF (EBS) by the PAXTools v5 utility. It was then processed to remove redundant edges, replace uniprot ids with gene names. This network can be found in searches using its original PID accession id, present in the 'labels' property."
+    "v" : "This pathway is derived from the latest BioPAX3 version of the Pathway Interaction Database (PID) curated by NCI/Nature.<p/><br/>The original OWL file was first converted to Extended Binary SIF (EBS) by the PAXTools v5 utility. It was then processed to remove redundant edges, node display names were set to official gene symbols and the new NDEx Default Visual Style was finally applied.<p/>This network can be found in searches using its original PID Accession ID as specified under the 'labels' property."
   }, {
     "n" : "selected",
     "v" : "false",

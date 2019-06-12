@@ -2,6 +2,11 @@
 History
 =======
 
+1.3.0 (2019-06-12)
+------------------
+
+* Improved description in style.cx file by (JIRA ticket UD-362)
+
 1.2.0 (2019-06-11)
 ------------------
 

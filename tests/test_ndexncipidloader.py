@@ -132,3 +132,60 @@ class TestNDExNciPidLoader(unittest.TestCase):
         net.set_name('foo')
         loader._add_node_types_in_network_to_report(net, report)
         self.assertEqual(set(), report.get_nodetypes())
+
+    def test_set_network_attributes_from_style_network_description_none(self):
+        net = NiceCXNetwork()
+        net.set_name('foo')
+
+        templatenet = NiceCXNetwork()
+        templatenet.set_name('well')
+        templatenet.set_network_attribute('organism', values='hi', type='string')
+
+        loader = NDExNciPidLoader(None)
+        loader._template = templatenet
+
+        res = loader._set_network_attributes_from_style_network(net)
+        self.assertEqual(1, len(res))
+        self.assertTrue('description network' in res[0])
+
+        self.assertEqual('', net.get_network_attribute('description')['v'])
+        self.assertEqual('hi', net.get_network_attribute('organism')['v'])
+
+    def test_set_network_attributes_from_style_network_description_set_org_not(self):
+        net = NiceCXNetwork()
+        net.set_name('foo')
+
+        templatenet = NiceCXNetwork()
+        templatenet.set_name('well')
+        templatenet.set_network_attribute('description', values='hi', type='string')
+        loader = NDExNciPidLoader(None)
+        loader._template = templatenet
+
+        res = loader._set_network_attributes_from_style_network(net)
+        self.assertEqual(1, len(res))
+        self.assertTrue('organism network' in res[0])
+
+        self.assertEqual('hi', net.get_network_attribute('description')['v'])
+        self.assertEqual(None, net.get_network_attribute('organism'))
+
+    def test_set_network_attributes_from_style_network_complete_net(self):
+        net = NiceCXNetwork()
+        net.set_name(loadndexncipidloader.COMPLETE_INTERACTION_NAME)
+
+        templatenet = NiceCXNetwork()
+        templatenet.set_name('well')
+        templatenet.set_network_attribute('description', values='hi', type='string')
+        templatenet.set_network_attribute('organism', values='some', type='string')
+        loader = NDExNciPidLoader(None)
+        loader._template = templatenet
+
+        res = loader._set_network_attributes_from_style_network(net)
+        self.assertEqual(0, len(res))
+
+        self.assertTrue('This network' in net.get_network_attribute('description')['v'])
+        self.assertEqual('some', net.get_network_attribute('organism')['v'])
+
+
+
+
+

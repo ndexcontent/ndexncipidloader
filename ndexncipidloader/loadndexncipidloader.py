@@ -1992,6 +1992,7 @@ class NDExNciPidLoader(object):
         else:
             issues.append('organism network attribute not set cause its '
                           'missing from template network')
+        return issues
 
     def _set_version_in_network_attributes(self, network):
         """

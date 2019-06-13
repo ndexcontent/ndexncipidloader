@@ -109,6 +109,8 @@ Name of file containing json of gene to symbol mapping
 stored within this package
 """
 
+COMPLETE_INTERACTION_NAME = 'NCI PID - Complete Interactions'
+
 
 def get_package_dir():
     """
@@ -1842,7 +1844,15 @@ class NDExNciPidLoader(object):
 
         network = t2n.convert_pandas_to_nice_cx_with_load_plan(df, self._loadplan)
 
-        network.set_name(file_name.replace('.sif', ''))
+        siflessname = file_name.replace('.sif', '')
+
+        # Renaming PathwayCommons.8.NCI_PID.BIOPAX to
+        # NCI PID - Complete Interactions
+        if siflessname == 'PathwayCommons.8.NCI_PID.BIOPAX':
+            siflessname = COMPLETE_INTERACTION_NAME
+
+        network.set_name(siflessname)
+
         report = NetworkIssueReport(network.get_name())
 
         # merge node attributes, logic was removed ndex2 python client so call a local implementation
@@ -1960,12 +1970,22 @@ class NDExNciPidLoader(object):
         :rtype: list
         """
         issues = []
-        description = self._template.get_network_attribute('description')
-        if description is not None:
-            network.set_network_attribute('description', description['v'])
+
+        # for complete interaction network use this description
+        if network.get_name() == COMPLETE_INTERACTION_NAME:
+            description = 'This network includes all interactions of the ' \
+                          'individual NCI-PID pathways.<br/>'
         else:
-            issues.append('description network attribute not set cause its '
-                          'missing from template network')
+            tempdesc = self._template.get_network_attribute('description')
+            if tempdesc is None:
+                issues.append('description network attribute not set cause its '
+                              'missing from template network')
+                description = ''
+            else:
+                description = tempdesc['v']
+
+        network.set_network_attribute('description', description)
+
         organism = self._template.get_network_attribute('organism')
         if organism is not None:
             network.set_network_attribute('organism', organism['v'])

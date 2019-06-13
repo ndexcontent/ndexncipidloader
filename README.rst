@@ -82,7 +82,7 @@ following these conventions:
 
 **11\)** The following network attributes are set
 
-* **name** set to name of OWL_ file with **.owl.gz** suffix removed
+* **name** set to name of OWL_ file with **.owl.gz** suffix removed except for **PathwayCommons.8.NCI_PID.BIOPAX** which is renamed to **NCI PID - Complete Interactions**
 * **author** (from **Curated By** column in `networkattributes.tsv`_)
 * **labels** (from **PID** column in `networkattributes.tsv`_)
 * **organism** is pulled from **organism** attribute of `style.cx`_
@@ -90,7 +90,7 @@ following these conventions:
 * **prov:wasDerivedFrom** is set to full path to OWL_ file on ftp site
 * **reviewers** (from **Reviewed By** column in `networkattributes.tsv`_)
 * **version** is set to Abbreviated month-year (example: MAY-2019)
-* **description** is pulled from **description** attribute of `style.cx`_
+* **description** is pulled from **description** attribute of `style.cx`_ except for **NCI PID - Complete Interactions** which has a hardcoded description set to `This network includes all interactions of the individual NCI-PID pathways.`
 * **type** is set to list of string with single entry **pathway**
 * **__normalizationversion** is set to 0.1
 

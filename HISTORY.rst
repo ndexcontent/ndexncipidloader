@@ -2,6 +2,12 @@
 History
 =======
 
+1.4.0 (2019-06-13)
+------------------
+
+* Network PathwayCommons.8.NCI_PID.BIOPAX is now renamed
+  to 'NCI PID - Complete Interactions' with alternate description.
+
 1.3.0 (2019-06-12)
 ------------------
 

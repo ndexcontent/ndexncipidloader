@@ -19,17 +19,7 @@
     "version" : "1.0"
   }, {
     "consistencyGroup" : 1,
-    "name" : "cyTableColumn",
-    "properties" : [ ],
-    "version" : "1.0"
-  }, {
-    "consistencyGroup" : 1,
     "name" : "networkAttributes",
-    "properties" : [ ],
-    "version" : "1.0"
-  }, {
-    "consistencyGroup" : 1,
-    "name" : "cyHiddenAttributes",
     "properties" : [ ],
     "version" : "1.0"
   }, {
@@ -52,27 +42,7 @@
     "name" : "cyVisualProperties",
     "properties" : [ ],
     "version" : "1.0"
-  }, {
-    "consistencyGroup" : 1,
-    "name" : "cySubNetworks",
-    "properties" : [ ],
-    "version" : "1.0"
-  }, {
-    "consistencyGroup" : 1,
-    "name" : "cyViews",
-    "properties" : [ ],
-    "version" : "1.0"
-  }, {
-    "consistencyGroup" : 1,
-    "name" : "cyGroups",
-    "properties" : [ ],
-    "version" : "1.0"
-  }, {
-    "consistencyGroup" : 1,
-    "name" : "cyNetworkRelations",
-    "properties" : [ ],
-    "version" : "1.0"
-  } ]
+  }]
 }, {
   "nodes" : [ {
     "@id" : 390,
@@ -650,160 +620,6 @@
     "s" : 343,
     "t" : 353,
     "i" : "down-regulates"
-  } ]
-}, {
-  "cyTableColumn" : [ {
-    "s" : 330,
-    "applies_to" : "node_table",
-    "n" : "shared name"
-  }, {
-    "s" : 330,
-    "applies_to" : "node_table",
-    "n" : "name"
-  }, {
-    "s" : 330,
-    "applies_to" : "node_table",
-    "n" : "selected",
-    "d" : "boolean"
-  }, {
-    "s" : 330,
-    "applies_to" : "node_table",
-    "n" : "represents"
-  }, {
-    "s" : 330,
-    "applies_to" : "node_table",
-    "n" : "shared_name"
-  }, {
-    "s" : 330,
-    "applies_to" : "node_table",
-    "n" : "id"
-  }, {
-    "s" : 330,
-    "applies_to" : "node_table",
-    "n" : "type"
-  }, {
-    "s" : 330,
-    "applies_to" : "edge_table",
-    "n" : "shared name"
-  }, {
-    "s" : 330,
-    "applies_to" : "edge_table",
-    "n" : "shared interaction"
-  }, {
-    "s" : 330,
-    "applies_to" : "edge_table",
-    "n" : "name"
-  }, {
-    "s" : 330,
-    "applies_to" : "edge_table",
-    "n" : "selected",
-    "d" : "boolean"
-  }, {
-    "s" : 330,
-    "applies_to" : "edge_table",
-    "n" : "interaction"
-  }, {
-    "s" : 330,
-    "applies_to" : "edge_table",
-    "n" : "MECHANISM"
-  }, {
-    "s" : 330,
-    "applies_to" : "edge_table",
-    "n" : "citation",
-    "d" : "list_of_string"
-  }, {
-    "s" : 330,
-    "applies_to" : "edge_table",
-    "n" : "SENTENCE"
-  }, {
-    "s" : 330,
-    "applies_to" : "edge_table",
-    "n" : "source"
-  }, {
-    "s" : 330,
-    "applies_to" : "edge_table",
-    "n" : "shared_name"
-  }, {
-    "s" : 330,
-    "applies_to" : "edge_table",
-    "n" : "target"
-  }, {
-    "s" : 330,
-    "applies_to" : "edge_table",
-    "n" : "NOTES"
-  }, {
-    "s" : 330,
-    "applies_to" : "edge_table",
-    "n" : "ANNOTATOR"
-  }, {
-    "s" : 330,
-    "applies_to" : "edge_table",
-    "n" : "shared_interaction"
-  }, {
-    "s" : 330,
-    "applies_to" : "edge_table",
-    "n" : "SEQUENCE"
-  }, {
-    "s" : 330,
-    "applies_to" : "edge_table",
-    "n" : "CELL_DATA",
-    "d" : "list_of_string"
-  }, {
-    "s" : 330,
-    "applies_to" : "edge_table",
-    "n" : "RESIDUE"
-  }, {
-    "s" : 330,
-    "applies_to" : "edge_table",
-    "n" : "id"
-  }, {
-    "s" : 330,
-    "applies_to" : "edge_table",
-    "n" : "TISSUE_DATA",
-    "d" : "list_of_string"
-  }, {
-    "s" : 330,
-    "applies_to" : "edge_table",
-    "n" : "DIRECT"
-  }, {
-    "s" : 330,
-    "applies_to" : "edge_table",
-    "n" : "directed",
-    "d" : "boolean"
-  }, {
-    "s" : 330,
-    "applies_to" : "network_table",
-    "n" : "shared name"
-  }, {
-    "s" : 330,
-    "applies_to" : "network_table",
-    "n" : "name"
-  }, {
-    "s" : 330,
-    "applies_to" : "network_table",
-    "n" : "selected",
-    "d" : "boolean"
-  }, {
-    "s" : 330,
-    "applies_to" : "network_table",
-    "n" : "description"
-  }, {
-    "s" : 330,
-    "applies_to" : "network_table",
-    "n" : "__normalizationversion"
-  }, {
-    "s" : 330,
-    "applies_to" : "network_table",
-    "n" : "organism"
-  }, {
-    "s" : 330,
-    "applies_to" : "network_table",
-    "n" : "__Annotations",
-    "d" : "list_of_string"
-  }, {
-    "s" : 330,
-    "applies_to" : "network_table",
-    "n" : "shared_name"
   } ]
 }, {
   "networkAttributes" : [ {
@@ -9509,257 +9325,206 @@
 }, {
   "cartesianLayout" : [ {
     "node" : 390,
-    "view" : 465,
     "x" : -4.338198661804199,
     "y" : 395.1133117675781
   }, {
     "node" : 389,
-    "view" : 465,
     "x" : 805.3751831054688,
     "y" : 379.9322509765625
   }, {
     "node" : 388,
-    "view" : 465,
     "x" : -4.338199615478516,
     "y" : 439.7259826660156
   }, {
     "node" : 387,
-    "view" : 465,
     "x" : 276.4258135627297,
     "y" : 357.09698486328125
   }, {
     "node" : 386,
-    "view" : 465,
     "x" : 194.95167092715985,
     "y" : 357.09698486328125
   }, {
     "node" : 385,
-    "view" : 465,
     "x" : 113.47752829159003,
     "y" : 357.09698486328125
   }, {
     "node" : 384,
-    "view" : 465,
     "x" : -4.338199615478516,
     "y" : 359.08636474609375
   }, {
     "node" : 383,
-    "view" : 465,
     "x" : 342.8999561982996,
     "y" : 360.0810546875
   }, {
     "node" : 382,
-    "view" : 465,
     "x" : -172.2909393310547,
     "y" : 402.8994445800781
   }, {
     "node" : 381,
-    "view" : 465,
     "x" : -174.5854034423828,
     "y" : 537.4378051757812
   }, {
     "node" : 380,
-    "view" : 465,
     "x" : -170.76531982421875,
     "y" : 472.5465087890625
   }, {
     "node" : 379,
-    "view" : 465,
     "x" : 663.7965267405789,
     "y" : 410.80975341796875
   }, {
     "node" : 378,
-    "view" : 465,
     "x" : 595.978271484375,
     "y" : 371.0224671919918
   }, {
     "node" : 377,
-    "view" : 465,
     "x" : 651.7437744140625,
     "y" : 348.144775390625
   }, {
     "node" : 376,
-    "view" : 465,
     "x" : 505.84824146943924,
     "y" : 368.03851318359375
   }, {
     "node" : 375,
-    "view" : 465,
     "x" : 439.751953125,
     "y" : 365.95611572265625
   }, {
     "node" : 374,
-    "view" : 465,
     "x" : -441.7166442871094,
     "y" : 463.693115234375
   }, {
     "node" : 373,
-    "view" : 465,
     "x" : -361.77490234375,
     "y" : 341.2289123535156
   }, {
     "node" : 372,
-    "view" : 465,
     "x" : -442.50115966796875,
     "y" : 348.7841444625113
   }, {
     "node" : 371,
-    "view" : 465,
     "x" : 195.80737382710504,
     "y" : -70.09586901403964
   }, {
     "node" : 370,
-    "view" : 465,
     "x" : -15.627067565917969,
     "y" : -71.13166896946584
   }, {
     "node" : 369,
-    "view" : 465,
     "x" : 417.314777771855,
     "y" : -133.38369871252507
   }, {
     "node" : 368,
-    "view" : 465,
     "x" : -41.52198754233541,
     "y" : 135.58957750617992
   }, {
     "node" : 367,
-    "view" : 465,
     "x" : -152.27568951473222,
     "y" : -70.09586901403964
   }, {
     "node" : 366,
-    "view" : 465,
     "x" : 53.409757005414576,
     "y" : 277.9871943278122
   }, {
     "node" : 365,
-    "view" : 465,
     "x" : -41.52198754233541,
     "y" : 277.9871943278122
   }, {
     "node" : 364,
-    "view" : 465,
     "x" : 749.5758836890891,
     "y" : -259.95935810958326
   }, {
     "node" : 363,
-    "view" : 465,
     "x" : 622.3223841050092,
     "y" : 309.631103515625
   }, {
     "node" : 362,
-    "view" : 465,
     "x" : 623.0002242920164,
     "y" : 214.69936462932674
   }, {
     "node" : 361,
-    "view" : 465,
     "x" : 623.0002242920164,
     "y" : 277.9871943278122
   }, {
     "node" : 360,
-    "view" : 465,
     "x" : -41.52198754233541,
     "y" : -323.2471878080978
   }, {
     "node" : 359,
-    "view" : 465,
     "x" : 749.5758836890891,
     "y" : -323.2471878080978
   }, {
     "node" : 358,
-    "view" : 465,
     "x" : 195.80737382710504,
     "y" : 9.01391810910718
   }, {
     "node" : 357,
-    "view" : 465,
     "x" : 290.739118374855,
     "y" : 72.30174780760717
   }, {
     "node" : 356,
-    "view" : 465,
     "x" : 417.314777771855,
     "y" : -70.09586901403964
   }, {
     "node" : 355,
-    "view" : 465,
     "x" : 100.8756292793114,
     "y" : -22.62999674009916
   }, {
     "node" : 354,
-    "view" : 465,
     "x" : 290.739118374855,
     "y" : -22.62999674009916
   }, {
     "node" : 353,
-    "view" : 465,
     "x" : 417.314777771855,
     "y" : -196.67152841106872
   }, {
     "node" : 352,
-    "view" : 465,
     "x" : -152.27568951473222,
     "y" : -133.38369871252507
   }, {
     "node" : 351,
-    "view" : 465,
     "x" : -152.27568951473222,
     "y" : -196.67152841106872
   }, {
     "node" : 350,
-    "view" : 465,
     "x" : -152.27568951473222,
     "y" : -259.95935810958326
   }, {
     "node" : 349,
-    "view" : 465,
     "x" : 148.34150155319367,
     "y" : 167.23349235544447
   }, {
     "node" : 348,
-    "view" : 465,
     "x" : 53.409757005414576,
     "y" : 214.69936462932674
   }, {
     "node" : 347,
-    "view" : 465,
     "x" : -41.52198754233541,
     "y" : 214.69936462932674
   }, {
     "node" : 346,
-    "view" : 465,
     "x" : -41.52198754233541,
     "y" : -259.95935810958326
   }, {
     "node" : 345,
-    "view" : 465,
     "x" : 844.5076282367809,
     "y" : -259.95935810958326
   }, {
     "node" : 344,
-    "view" : 465,
     "x" : -247.20743406255497,
     "y" : 135.58957750617992
   }, {
     "node" : 343,
-    "view" : 465,
     "x" : 528.0684797442664,
     "y" : -196.67152841106872
   }, {
     "node" : 342,
-    "view" : 465,
     "x" : 448.9586926211341,
     "y" : 167.23349235544447
   }, {
     "node" : 341,
-    "view" : 465,
     "x" : -247.20743406255497,
     "y" : -259.95935810958326
   }, {
     "node" : 340,
-    "view" : 465,
     "x" : 543.8904371688841,
     "y" : 167.23349235544447
   } ]
@@ -9936,37 +9701,12 @@
     }
   } ]
 }, {
-  "cySubNetworks" : [ {
-    "@id" : 330,
-    "nodes" : [ 390, 389, 388, 387, 386, 385, 384, 383, 382, 381, 380, 379, 378, 377, 376, 375, 374, 373, 372, 371, 370, 369, 368, 367, 366, 365, 364, 363, 362, 361, 360, 359, 358, 357, 356, 355, 354, 353, 352, 351, 350, 349, 348, 347, 346, 345, 344, 343, 342, 341, 340 ],
-    "edges" : [ 464, 463, 462, 461, 460, 459, 458, 457, 456, 455, 454, 453, 452, 451, 450, 449, 448, 447, 446, 445, 444, 443, 442, 441, 440, 439, 438, 437, 436, 435, 434, 433, 432, 431, 430, 429, 428, 427, 426, 425, 424, 423, 422, 421, 420, 419, 418, 417, 416, 415, 414, 413, 412, 411, 410, 409, 408, 407, 406, 405, 404, 403, 402, 401, 400, 399, 398, 397, 396, 395, 394, 393, 392, 391 ]
-  } ]
-}, {
-  "cyViews" : [ {
-    "@id" : 465,
-    "s" : 330
-  } ]
-}, {
-  "cyNetworkRelations" : [ {
-    "p" : 330,
-    "c" : 465,
-    "r" : "view",
-    "name" : "WNT Signaling.cx view"
-  }, {
-    "c" : 330,
-    "r" : "subnetwork",
-    "name" : "WNT Signaling.cx"
-  } ]
-}, {
   "metaData" : [ {
     "elementCount" : 36,
     "name" : "cyTableColumn"
   }, {
     "elementCount" : 7,
     "name" : "networkAttributes"
-  }, {
-    "elementCount" : 0,
-    "name" : "cyHiddenAttributes"
   }, {
     "elementCount" : 255,
     "name" : "nodeAttributes"
@@ -9979,19 +9719,7 @@
   }, {
     "elementCount" : 3,
     "name" : "cyVisualProperties"
-  }, {
-    "elementCount" : 1,
-    "name" : "cySubNetworks"
-  }, {
-    "elementCount" : 1,
-    "name" : "cyViews"
-  }, {
-    "elementCount" : 0,
-    "name" : "cyGroups"
-  }, {
-    "elementCount" : 2,
-    "name" : "cyNetworkRelations"
-  } ]
+  }]
 }, {
   "status" : [ {
     "error" : "",

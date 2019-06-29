@@ -2,6 +2,11 @@
 History
 =======
 
+1.5.0 (2019-06-28)
+------------------
+
+* Fixed style.cx by removing view aspects that was causing networks to not render properly in cytoscape
+
 1.4.0 (2019-06-13)
 ------------------
 

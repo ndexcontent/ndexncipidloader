@@ -337,4 +337,16 @@ class TestRedundantEdgeAdjudicator(unittest.TestCase):
                                      RedundantEdgeAdjudicator.CITATION)
 
         self.assertEqual((None, None), res)
+        
+    def test_basic_network_where_neighbor_of_citations_merges_enabled(self):
+        net = NiceCXNetwork()
+        adjud = RedundantEdgeAdjudicator()
+        
+        nid = net.create_edge(edge_source = 0, edge_target =1, edge_interaction='neighbor-of')
+        net.set_edge_attribute(nid, RedundantEdgeAdjudicator.CITATION, ['pubmed:5'], type='list_of_string')
+        
+        cid = net.create_edge(edge_source = 0, edge_target = 1, edge_interaction = 'controls-state-change-of')
+        net.set_edge_attribute(cid, RedundantEdgeAdjudicator.CITATION, ['pubmed:6'], type='list_of_string')
+        
+        adjud.remove_and_merge_neighbor_of(net, neighbor_of_map, cid, merge_citations=True)
 

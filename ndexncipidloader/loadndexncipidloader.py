@@ -1132,6 +1132,18 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
                                 self._remove_if_redundant(network, subi, other_edges,
                                                           mergecitations=mergecitations)
 
+def littler_bear(self, network, neighbour_of_map, other_edges, mergecitations=True):
+        
+        for s in neighbour_of_map.items():
+            for t in neighbour_of_map.items():
+                self.remove_edge(network, neighbour_of_map[s][t])
+                if mergecitations is True:
+                    network.set_edge_attribute(other_edges, RedundantEdgeAdjudicator.CITATION, citations, type='list_of_string')
+                    if len(other_edges) is 0:
+                        self._remove_edge(network, neighbour_of_map[s][t])
+
+        
+        
     def update(self, network):
         """
         Examines all edges in network and removes redundant
@@ -1185,6 +1197,8 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
                                      neighbor_of_map,
                                      other_edge_exists,
                                      mergecitations=True)
+        
+        self._remove_and_merge_neighbour_of(network, neighbour_of_map, other_edge, mergecitations=True) 
         return []
 
 

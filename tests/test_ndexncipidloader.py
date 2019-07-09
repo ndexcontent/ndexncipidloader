@@ -133,6 +133,20 @@ class TestNDExNciPidLoader(unittest.TestCase):
         self.assertEqual(['pathway'],
                          net.get_network_attribute('networkType')['v'])
 
+        net.set_name(loadndexncipidloader.COMPLETE_INTERACTION_NAME)
+        loader._set_type(net)
+        self.assertEqual(['pathway', 'interactome'],
+                         net.get_network_attribute('networkType')['v'])
+
+    def test_set_iconurl(self):
+        p = Param()
+        p.iconurl='hi'
+        loader = NDExNciPidLoader(p)
+        net = NiceCXNetwork()
+        loader._set_iconurl(net)
+        self.assertEqual('hi',
+                         net.get_network_attribute('__iconurl')['v'])
+
     def test_add_node_types_in_network_to_report_empty_network(self):
         loader = NDExNciPidLoader(None)
         report = NetworkIssueReport('foo')

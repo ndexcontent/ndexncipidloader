@@ -65,6 +65,8 @@ DEFAULT_FTP_DIR = 'NCI_PID_BIOPAX_2016-06-08-PC2v8-API'
 DEFAULT_FTP_USER = 'anonymous'
 DEFAULT_FTP_PASS = 'anonymous'
 FTP_SUBDIR = 'ftp'
+ICONURL_ATTRIB = '__iconurl'
+ICON_URL = 'http://search.ndexbio.org/static/media/ndex-logo.04d7bf44.svg'
 
 PARTICIPANT_NAME = 'PARTICIPANT_NAME'
 """
@@ -197,6 +199,10 @@ def _parse_arguments(desc, args):
                         default=get_gene_symbol_mapping())
     parser.add_argument('--loadplan', help='Use alternate load plan file',
                         default=get_load_plan())
+    parser.add_argument('--iconurl',
+                        help='Sets network attribute value __iconurl '
+                             '(default ' + ICON_URL + ')',
+                        default=ICON_URL)
     parser.add_argument('--networkattrib',
                         help='Use alternate Tab delimited file containing '
                              'PID Pathway Name, reviewed by, '
@@ -1900,6 +1906,9 @@ class NDExNciPidLoader(object):
         # set type network attribute
         self._set_type(network)
 
+        # set iconurl
+        self._set_iconurl(network)
+
         # set common attributes from style network
         issues = self._set_network_attributes_from_style_network(network)
         report.addissues('Setting description and organism network attributes', issues)
@@ -2035,8 +2044,23 @@ class NDExNciPidLoader(object):
         :type :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
         :return: None
         """
-        network.set_network_attribute(TYPE_ATTRIB, ['pathway'],
+        typeval = ['pathway']
+        if network.get_name() == COMPLETE_INTERACTION_NAME:
+            typeval = ['pathway', 'interactome']
+
+        network.set_network_attribute(TYPE_ATTRIB, typeval,
                                       type='list_of_string')
+
+    def _set_iconurl(self, network):
+        """
+        Sets the network attribute :py:const:`ICONURL_ATTRIB` with
+        value from self._args.iconurl passed in constructor
+        :param network: network to add attribute
+        :type :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
+        :return:
+        """
+        network.set_network_attribute(ICONURL_ATTRIB,
+                                      self._args.iconurl)
 
     def _set_wasderivedfrom(self, network):
         """

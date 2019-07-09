@@ -91,7 +91,8 @@ following these conventions:
 * **reviewers** (from **Reviewed By** column in `networkattributes.tsv`_)
 * **version** is set to Abbreviated month-year (example: MAY-2019)
 * **description** is pulled from **description** attribute of `style.cx`_ except for **NCI PID - Complete Interactions** which has a hardcoded description set to `This network includes all interactions of the individual NCI-PID pathways.`
-* **networkType** is set to list of string with single entry **pathway**
+* **networkType** is set to list of string with single entry **pathway** except for **NCI PID - Complete Interactions** which also includes **interactome**
+* **__iconurl** is set to value of `--iconurl` flag (currently defaulting to http://search.ndexbio.org/static/media/ndex-logo.04d7bf44.svg)
 * **__normalizationversion** is set to 0.1
 
 Dependencies

@@ -2,6 +2,13 @@
 History
 =======
 
+1.6.0 (2019-07-09)
+------------------
+
+* Added *__iconurl* network attribute to all networks
+
+* Added **interactome** to *networkType** network attribute for 'NCI PID - Complete Interactions' network
+
 1.5.1 (2019-07-09)
 ------------------
 

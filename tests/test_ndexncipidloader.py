@@ -125,6 +125,14 @@ class TestNDExNciPidLoader(unittest.TestCase):
         self.assertTrue(' ' + str(ndexncipidloader.__version__) in
                         net.get_network_attribute(norm_attr)['v'])
 
+    def test_set_type(self):
+        loader = NDExNciPidLoader(None)
+        net = NiceCXNetwork()
+        net.set_name('foo')
+        loader._set_type(net)
+        self.assertEqual(['pathway'],
+                         net.get_network_attribute('networkType')['v'])
+
     def test_add_node_types_in_network_to_report_empty_network(self):
         loader = NDExNciPidLoader(None)
         report = NetworkIssueReport('foo')

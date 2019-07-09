@@ -83,7 +83,7 @@ Network attribute to denote source of network data
 
 NORMALIZATIONVERSION_ATTRIB = '__normalizationversion'
 
-TYPE_ATTRIB = 'type'
+TYPE_ATTRIB = 'networkType'
 
 LOAD_PLAN = 'loadplan.json'
 """

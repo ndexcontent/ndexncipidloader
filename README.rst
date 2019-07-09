@@ -91,7 +91,7 @@ following these conventions:
 * **reviewers** (from **Reviewed By** column in `networkattributes.tsv`_)
 * **version** is set to Abbreviated month-year (example: MAY-2019)
 * **description** is pulled from **description** attribute of `style.cx`_ except for **NCI PID - Complete Interactions** which has a hardcoded description set to `This network includes all interactions of the individual NCI-PID pathways.`
-* **type** is set to list of string with single entry **pathway**
+* **networkType** is set to list of string with single entry **pathway**
 * **__normalizationversion** is set to 0.1
 
 Dependencies

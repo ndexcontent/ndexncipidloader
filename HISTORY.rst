@@ -2,6 +2,11 @@
 History
 =======
 
+1.5.1 (2019-07-09)
+------------------
+
+* Renamed network attribute *type* to *networkType* to adhere to normalization specification
+
 1.5.0 (2019-06-28)
 ------------------
 

@@ -1,6 +1,3 @@
-#! /usr/bin/env python
-
-
 import os
 import argparse
 import sys
@@ -28,7 +25,7 @@ from ndex2.client import Ndex2
 import ndex2
 from ndexncipidloader.exceptions import NDExNciPidLoaderError
 from ndexutil.config import NDExUtilConfig
-import ndexncipidloader
+
 
 logger = logging.getLogger(__name__)
 
@@ -1093,6 +1090,7 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
                 self._remove_edge(network, edgeid)
                 return
 
+
     def _remove_redundant_edges(self, network,
                                 edge_map,
                                 other_edge_exists,
@@ -1132,15 +1130,45 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
                                 self._remove_if_redundant(network, subi, other_edges,
                                                           mergecitations=mergecitations)
 
-def littler_bear(self, network, neighbour_of_map, other_edges, mergecitations=True):
+def  remove_and_merge_neighbor_of(self, network, neighbor_of_map, other_edges, edge_map, mergecitations=True):
         
-        for s in neighbour_of_map.items():
-            for t in neighbour_of_map.items():
-                self.remove_edge(network, neighbour_of_map[s][t])
-                if mergecitations is True:
-                    network.set_edge_attribute(other_edges, RedundantEdgeAdjudicator.CITATION, citations, type='list_of_string')
-                    if len(other_edges) is 0:
-                        self._remove_edge(network, neighbour_of_map[s][t])
+ neighbor_of_map = {}
+        controls_state_change_map = {}
+        other_edge_exists = {}
+        for k, v in network.get_edges():
+            s = v['s']
+            t = v['t']
+            i = v['i']
+
+            if i == 'neighbor-of':
+                if not s in neighbor_of_map:
+                    neighbor_of_map[s] = {}
+                if not t in neighbor_of_map:
+                    neighbor_of_map[t] = {}
+                neighbor_of_map[s][t] = k
+                neighbor_of_map[t][s] = k
+            elif i == 'controls-state-change-of':
+                self._add_to_edge_map(controls_state_change_map, k, s, t)
+            else:
+                self._add_to_edge_map(other_edge_exists, k, s, t)
+        
+
+        
+        for s in neighbor_of_map.items():
+            for t in neighbor_of_map.items():
+                self._remove_edge(network, k)
+                for s,t in edge_map.items():
+                    for t, i in ti.items():
+                        n_attr = get_edge_attribute(k, RedundantEdgeAdjudicator.CITATION)
+                        o_attr = get_edge_attribute(other_edges, RedundantEdgeAdjudicator.CITATION)
+                        n_citations = n_attr['v']
+                        o_citations = c_attr['v']
+                        o_citations.sort()
+                        n_citations.sort()
+                        if o_citations != n_citations:
+                            network.set_edge_attribute(other_edges, RedundantEdgeAdjudicator.CITATION, citations, type='list_of_string')
+                        if len(other_edges) is 0:
+                            self._remove_edge(network, neighbour_of_map[s][t])
 
         
         
@@ -1198,7 +1226,7 @@ def littler_bear(self, network, neighbour_of_map, other_edges, mergecitations=Tr
                                      other_edge_exists,
                                      mergecitations=True)
         
-        self._remove_and_merge_neighbour_of(network, neighbour_of_map, other_edge, mergecitations=True) 
+        self._remove_and_merge_neighbour_of(network, neighbour_of_map, other_edges, edge_map, mergecitations=True) 
         return []
 
 

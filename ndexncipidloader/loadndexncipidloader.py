@@ -27,7 +27,7 @@ from ndex2.client import Ndex2
 import ndex2
 from ndexncipidloader.exceptions import NDExNciPidLoaderError
 from ndexutil.config import NDExUtilConfig
-
+import ndexncipidloader
 
 logger = logging.getLogger(__name__)
 
@@ -1132,9 +1132,9 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
                                 self._remove_if_redundant(network, subi, other_edges,
                                                           mergecitations=mergecitations)
 
-def  remove_and_merge_neighbor_of(self, network, neighbor_of_map, other_edges, edge_map, mergecitations=True):
+    def  remove_and_merge_neighbor_of(self, network, neighbor_of_map, other_edges, edge_map, mergecitations=True):
         
- neighbor_of_map = {}
+        neighbor_of_map = {}
         controls_state_change_map = {}
         other_edge_exists = {}
         for k, v in network.get_edges():

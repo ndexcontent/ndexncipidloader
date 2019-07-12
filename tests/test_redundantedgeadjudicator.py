@@ -341,12 +341,34 @@ class TestRedundantEdgeAdjudicator(unittest.TestCase):
     def test_basic_network_where_neighbor_of_citations_merges_enabled(self):
         net = NiceCXNetwork()
         adjud = RedundantEdgeAdjudicator()
-        
+        edge_map={}
         nid = net.create_edge(edge_source = 0, edge_target =1, edge_interaction='neighbor-of')
         net.set_edge_attribute(nid, RedundantEdgeAdjudicator.CITATION, ['pubmed:5'], type='list_of_string')
         
         cid = net.create_edge(edge_source = 0, edge_target = 1, edge_interaction = 'controls-state-change-of')
         net.set_edge_attribute(cid, RedundantEdgeAdjudicator.CITATION, ['pubmed:6'], type='list_of_string')
-        
-        adjud.remove_and_merge_neighbor_of(net, neighbor_of_map, cid, merge_citations=True)
+    
+    
+        neighbor_of_map = {}
+        controls_state_change_map = {}
+        other_edge_exists = {}
+        for k, v in net.get_edges():
+            s = v['s']
+            t = v['t']
+            i = v['i']
 
+            if i == 'neighbor-of':
+                if not s in neighbor_of_map:
+                    neighbor_of_map[s] = {}
+                if not t in neighbor_of_map:
+                    neighbor_of_map[t] = {}
+                neighbor_of_map[s][t] = k
+                neighbor_of_map[t][s] = k
+            elif i == 'controls-state-change-of':
+                adjud._add_to_edge_map(controls_state_change_map, k, s, t)
+            else:
+                adjud._add_to_edge_map(other_edge_exists, k, s, t)
+            
+        adjud.remove_and_merge_neighbor_of(net, neighbor_of_map, edge_map)
+        
+        net.print_summary()

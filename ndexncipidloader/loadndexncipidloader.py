@@ -926,7 +926,7 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
     described in :py:func:`~RedundantEdgeAdjudicator.update`
     """
     CITATION = 'citation'
-
+    _edge_map = {}
     def __init__(self,
                  disablcitededgemerge=False):
         """
@@ -1119,7 +1119,7 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
                 return
 
 
-    def _remove_redundant_edges(self, network,
+    def _old_remove_redundant_edges(self, network,
                                 edge_map,
                                 other_edge_exists,
                                 higher_priority_edges=None,
@@ -1160,6 +1160,40 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
                             for subi in i:
                                 self._remove_if_redundant(network, subi, other_edges,
                                                           mergecitations=mergecitations)
+
+    def _make_key(self, node_id1, node_id2):
+        return ("%s%s" % (node_id1, node_id2))
+
+    def _make_new_edge_map(self, network):
+        edge_map={}
+        for edge_id, edge_object in network.get_edges():
+            source_nodeid = edge_object['s']
+            target_nodeid = edge_object['t']
+            interaction = edge_object['i']
+            edge_map_key = self._make_key(source_nodeid, target_nodeid)
+            if not edge_map_key in edge_map:
+                edge_map[edge_map_key] = [edge_object]
+            else:
+                list_of_edges = edge_map[edge_map_key]
+                list_of_edges.append(edge_object)
+        self._edge_map = edge_map
+
+    def _get_edges_between_two_nodes(self, node_id1, node_id2):
+
+        return self._edge_map.get(self._make_key(node_id1, node_id2))
+
+    def _new_remove_if_redundant(self, network, edge_map):
+        
+        for edge_map_key, edges in self._edge_map:
+            c_attr = network.get_edge_attribute(self._edge_map.get(edge_map_key), RedundantEdgeAdjudicator.CITATION)
+            if c_attr == (None, None):
+                self._remove_edge(network, self._edge_map.get(edge_map_key))
+                return
+            citations = c_attr['v']
+            citations.sort()
+            if self._edge_map[edge_map_key] == edges['i']:
+                network.set_edge_attribute(other_edge, RedundantEdgeAdjudicator.CITATION, citations, type='list_of_string')
+                self._remove_edge(network, self._edge_map.get(edge_map_key))
 
 
     def _remove_all_neighbor_of(self, network, neighbor_of_map):
@@ -1202,7 +1236,7 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
 
 
 
-        
+
     def update(self, network):
         """
         Examines all edges in network and removes redundant
@@ -1233,18 +1267,18 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
 
         # remove any neighbor-of edges where the source and target are the same as an edge in other edge
         # map
-        self._remove_redundant_edges(network, neighbor_of_map,
+        self._old_remove_redundant_edges(network, neighbor_of_map,
                                      other_edge_exists)
 
         # remove any neighbor-of edges where the source and target are the same as an edge in
         # controls-state-change-of map
-        self._remove_redundant_edges(network, neighbor_of_map,
+        self._old_remove_redundant_edges(network, neighbor_of_map,
                                      controls_state_change_map)
 
         # remove any controls-state-change-of edges where the source and target are the same as an edge
         # in other edge map and the edge is a member of CONTROL_INTERACTIONs
  
-        self._remove_redundant_edges(network,
+        self._old_remove_redundant_edges(network,
                                      controls_state_change_map,
                                      other_edge_exists, higher_priority_edges = CONTROL_INTERACTIONS)
         
@@ -1254,6 +1288,7 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
             logger.info('Merging of neighbor-of citations DISABLED')
             self._remove_all_neighbor_of(network, neighbor_of_map)
             self._remove_orphan_nodes(network)
+            self._new_remove_redundant_edges(network, higher_priority_edges=None)
             return []
 
         (neighbor_of_map, controls_state_change_map,
@@ -1261,13 +1296,14 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
         
         
         
-        self._remove_redundant_edges(network,
+        self._old_remove_redundant_edges(network,
                                      neighbor_of_map,
                                      other_edge_exists,
                                      mergecitations=True)
-        
+        self._make_new_edge_map(network)
         self._remove_all_neighbor_of(network, neighbor_of_map)
         self._remove_orphan_nodes(network)
+        self._new_remove_if_redundant(network, self._edge_map)
         return []
 
 

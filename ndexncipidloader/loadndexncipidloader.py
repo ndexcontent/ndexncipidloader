@@ -1076,7 +1076,8 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
         for node_pair_edges in self._edge_map.values():
             self._remove_redundant_from_pair(network, node_pair_edges)
         number_removed = edge_count - len(network.edges)
-        logger.debug(f'removed {number_removed} subsumed edges out of {edge_count}')
+        logger.debug('removed ' + str(number_removed) +
+                     ' subsumed edges out of ' + str(edge_count))
 
     def _remove_all_neighbor_of(self, network):
         """
@@ -1097,7 +1098,8 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
         for edge_id in edges_to_remove:
             self._remove_edge(network, edge_id)
         number_removed = edge_count - len(network.edges)
-        logger.debug(f'removed {number_removed} neighbor-of edges out of {edge_count}')
+        logger.debug('removed ' + str(number_removed) + ' neighbor-of edges out of ' +
+                     str(edge_count))
 
     def _remove_orphan_nodes(self, network):
         """
@@ -1124,7 +1126,11 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
 
         post_node_count = len(network.nodes)
         post_node_attribute_count = len(network.nodeAttributes)
-        logger.debug(f'removed {len(node_ids_to_remove)} orphaned nodes: {pre_node_count} -> {post_node_count}, attributes {pre_node_attribute_count} -> {post_node_attribute_count}')
+        logger.debug('removed ' + str(len(node_ids_to_remove)) +
+                     ' orphaned nodes: ' + str(pre_node_count) +
+                     '  -> ' + str(post_node_count) + ', attributes ' +
+                     str(pre_node_attribute_count) + ' -> ' +
+                     str(post_node_attribute_count))
 
     def update(self, network):
         """

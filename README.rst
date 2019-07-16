@@ -47,11 +47,11 @@ value of **citation** edge attribute. The values in **citation** edge attribute 
 prefixed with **pubmed:** Once loaded redundant edges are removed
 following these conventions:
 
-* **neighbor-of** edges are removed if they contain no unique citations and an edge of another type exists
+* **neighbor-of** edges are removed
 
-* **controls-state-change-map** edges are removed if they contain no unique citations and an edge of type other then **neighbor-of** exists
+* **controls-state-of** edges are removed if another edge connecting same nodes has one of the following interactions: **controls-state-change-of, controls-transport-of, controls-phosphorylation-of, controls-expression-of**
 
-* **Special case:** After network has been updated following previous two conditions and there exists a **neighbor-of** edge with citations and **one** other edge exists with **no** citations, the citations from **neighbor-of** are added to the other edge and the **neighbor-of** edge is removed
+**NOTE:** If above results in orphaned nodes, those nodes are removed as well
 
 **5\)** An edge attribute named **directed** is set to **True** if edge interaction type is one of the following (otherwise its set to **False**)
 

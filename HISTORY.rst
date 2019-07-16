@@ -2,6 +2,15 @@
 History
 =======
 
+2.0.0 (2019-07-16)
+------------------
+
+* Spring layout adjusted by increasing iterations
+
+* Code now removes all neighbor-of edges with NO data migration. controls-state-change-of
+  edges are removed if more informative edges exist. Any orphaned nodes resulting from
+  the removal of these edges are also removed
+
 1.6.0 (2019-07-09)
 ------------------
 

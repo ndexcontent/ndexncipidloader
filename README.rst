@@ -180,14 +180,13 @@ This example assumes a valid configuration file and the SIF files are located in
    loadndexncipidloader.py --skipdownload sif
 
 **All flags with descriptions**
-
-
+positional arguments:
   sifdir                Directory containing .sif files to parse. Under this
                         directory OWL fileswill be downloaded and converted to
                         sif unless --skipdownload flag is set, in which case
                         this script assumes the*.sif files already exist
 
-
+optional arguments:
   -h, --help            show this help message and exit
   --version             show program's version number and exit
   --profile PROFILE     Profile in configuration file to use to load NDEx
@@ -199,17 +198,19 @@ This example assumes a valid configuration file and the SIF files are located in
                         more information. Setting this overrides -v|--verbose
                         parameter which uses default logger. (default None)
   --conf CONF           Configuration file to load (default ~/.ndexutils.conf
-  --genesymbol GENESYMBOL Use alternate gene symbol mapping file
+  --genesymbol GENESYMBOL
+                        Use alternate gene symbol mapping file
   --loadplan LOADPLAN   Use alternate load plan file
-  --networkattrib NETWORKATTRIB 
-                        Use alternate Tab delimited file containing PID 
+  --networkattrib NETWORKATTRIB
+                        Use alternate Tab delimited file containing PID
                         Pathway Name, reviewed by, curated by and revision
                         data for ncipid networks
   --style STYLE         Path to NDEx CX file to use for stylingnetworks
-  --releaseversion RELEASEVERSION 
+  --releaseversion RELEASEVERSION
                         Sets version network attribute (default current month
                         and year Example: JUL-2019)
-  --singlefile SINGLEFILE Only process file matching name in <sifdir>
+  --singlefile SINGLEFILE
+                        Only process file matching name in <sifdir>
   --paxtools PAXTOOLS   Path to paxtools.jar file used to convertowl file to
                         sif file. Ignored if --skipdownload flag is set.
                         Default assumespaxtools.jar is in current working
@@ -220,7 +221,7 @@ This example assumes a valid configuration file and the SIF files are located in
                         sif files
   --skipchecker         If set, skips gene symbol checker thatexamines all
                         nodes of type proteinand verifies they are symbols
-  --disablcitededgemerge 
+  --disablcitededgemerge
                         If set, keeps neighbor-of edges if they contain
                         citations not found in moredescriptive edge
   --getfamilies         If set, code examines owl files and generates mapping
@@ -236,6 +237,7 @@ This example assumes a valid configuration file and the SIF files are located in
                         python logging levels -v = ERROR, -vv = WARNING, -vvv
                         = INFO, -vvvv = DEBUG, -vvvvv = NOTSET (default is to
                         log CRITICAL)
+
 
 Via Docker
 ~~~~~~~~~~~~~~~~~~~~~~

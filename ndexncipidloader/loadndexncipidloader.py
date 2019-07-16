@@ -1170,6 +1170,7 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
             source_nodeid = edge_object['s']
             target_nodeid = edge_object['t']
             interaction = edge_object['i']
+            edge_id = edge_object['@id']
             edge_map_key = self._make_key(source_nodeid, target_nodeid)
             if not edge_map_key in edge_map:
                 edge_map[edge_map_key] = [edge_object]
@@ -1182,21 +1183,76 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
 
         return self._edge_map.get(self._make_key(node_id1, node_id2))
 
-    def _new_remove_if_redundant(self, network, edge_map):
-        
+    def subsumes(self, edge1, edge2, higher_priority_edges=CONTROL_INTERACTIONS):
+        if edge1['i'] in higher_priority_edges and edge2['i'] == "controls-state-change-of":
+            return True
+        return False
+
+    def _remove_redundant_from_pair(self, network, edges):
+        for edge in edges:
+            current_edge = edge
+            current_edge_id = current_edge['@id']
+            for comparison_edge in edges:
+                comparison_edge_id = comparison_edge['@id']
+                if comparison_edge != current_edge:
+                    if subsumes(current_edge, comparison_edge):
+                        self._remove_edge(network, comparison_edge_id)
+
+
+        """ 
+        c_attr = network.get_edge_attribute(, RedundantEdgeAdjudicator.CITATION)
+        if c_attr == (None, None):
+            self._remove_edge(network,  )
+            return
+        citations = c_attr['v']
+        citations.sort()
+        o_attr = network.get_edge_attribute(, RedundantEdgeAdjudicator.CITATION)
+        if o_attr == (None, None):
+            self._remove_edge(network, )
+            return
+        o_citations = c_attr['v']
+        citations.sort()
+        """
+    def _new_remove_if_redundant(self, network, higher_priority_edges = CONTROL_INTERACTIONS):
+
         for edge_map_key, edges in self._edge_map:
+            print(edges)
+            self._remove_redundant_from_pair(network, edges)
+
+            """
             c_attr = network.get_edge_attribute(self._edge_map.get(edge_map_key), RedundantEdgeAdjudicator.CITATION)
             if c_attr == (None, None):
                 self._remove_edge(network, self._edge_map.get(edge_map_key))
                 return
             citations = c_attr['v']
             citations.sort()
+            o_attr = network.get_edge_attribute(edges, RedundantEdgeAdjudicator.CITATION)
+            if o_attr == (None, None):
+                self._remove_edge(network, edges)
+                return
+            o_citations = c_attr['v']
+            citations.sort()
             if self._edge_map[edge_map_key] == edges['i']:
-                network.set_edge_attribute(other_edge, RedundantEdgeAdjudicator.CITATION, citations, type='list_of_string')
-                self._remove_edge(network, self._edge_map.get(edge_map_key))
+                    network.set_edge_attribute(edges, RedundantEdgeAdjudicator.CITATION, citations, type='list_of_string')
+                    self._remove_edge(network, self._edge_map.get(edge_map_key))
+                else:
+                    if self._edge_map.get(edge_map_key) in higher_priority_edges:
+                        if other_edges['i'] in higher_priority_edges:
+                            return
+                        else:
+                            network.set_edge_attributes(self.edge_map.get(edge_map_key), RedundantEdgeAdjudicator.CITATION, o_citations, type='list_of_string')
+                            self._remove_edge(network, edges)
+                    elif other_edges['i'] in higher_priority_edges:
+                        network.set_edge_attributes(edges, RedundantEdgeAdjudicator.CITATION, citations, type='list_of_string')
+                        self._remove_edge(network, self._edge_map.get(edge_map_key))
+                    else:
+                        return
+            """
 
 
-    def _remove_all_neighbor_of(self, network, neighbor_of_map):
+
+
+    def _remove_all_neighbor_of(self, network):
         """
         Iterates through 'neighbor_of_map' and deletes the attributes and edges permanently
         param network
@@ -1234,10 +1290,15 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
         for node_id in nodes_with_edges.difference(all_node_ids):
             self._remove_node(network, node_id)
 
-
-
-
     def update(self, network):
+
+        self._make_new_edge_map(network)
+        self._remove_all_neighbor_of(network)
+        self._remove_orphan_nodes(network)
+        self._new_remove_if_redundant(network, self._edge_map)
+
+
+    def old_update(self, network):
         """
         Examines all edges in network and removes redundant
         edges following this algorithm:
@@ -1300,10 +1361,7 @@ class RedundantEdgeAdjudicator(NetworkUpdator):
                                      neighbor_of_map,
                                      other_edge_exists,
                                      mergecitations=True)
-        self._make_new_edge_map(network)
-        self._remove_all_neighbor_of(network, neighbor_of_map)
-        self._remove_orphan_nodes(network)
-        self._new_remove_if_redundant(network, self._edge_map)
+
         return []
 
 

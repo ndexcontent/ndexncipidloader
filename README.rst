@@ -22,7 +22,7 @@ Python application that loads NCI-PID data into NDEx_
 This tool downloads OWL_ files containing NCI-PID data from: ftp://ftp.ndexbio.org/NCI_PID_BIOPAX_2016-06-08-PC2v8-API/
 and performs the following operations:
 
-**1\)** OWL files are converted to extended SIF_ format using Paxtools_ and the SIF_ file is loaded into a network
+**1\)** OWL files are converted to extended SIF_ format using Paxtools_ and the SIF_ file is loaded intzo a network
 
 **2\)** A node attribute named **type** is added to each node and is set to one of the following
    by extracting its value from **PARTICIPANT_TYPE** column in SIF_ file:
@@ -201,12 +201,14 @@ This example assumes a valid configuration file and the SIF files are located in
   --conf CONF           Configuration file to load (default ~/.ndexutils.conf
   --genesymbol GENESYMBOL Use alternate gene symbol mapping file
   --loadplan LOADPLAN   Use alternate load plan file
-  --networkattrib NETWORKATTRIB Use alternate Tab delimited file containing PID 
-                                Pathway Name, reviewed by, curated by and revision
-                                data for ncipid networks
+  --networkattrib NETWORKATTRIB 
+                        Use alternate Tab delimited file containing PID 
+                        Pathway Name, reviewed by, curated by and revision
+                        data for ncipid networks
   --style STYLE         Path to NDEx CX file to use for stylingnetworks
-  --releaseversion RELEASEVERSION Sets version network attribute (default current month
-                                  and year Example: JUL-2019)
+  --releaseversion RELEASEVERSION 
+                        Sets version network attribute (default current month
+                        and year Example: JUL-2019)
   --singlefile SINGLEFILE Only process file matching name in <sifdir>
   --paxtools PAXTOOLS   Path to paxtools.jar file used to convertowl file to
                         sif file. Ignored if --skipdownload flag is set.
@@ -218,8 +220,9 @@ This example assumes a valid configuration file and the SIF files are located in
                         sif files
   --skipchecker         If set, skips gene symbol checker thatexamines all
                         nodes of type proteinand verifies they are symbols
-  --disablcitededgemerge If set, keeps neighbor-of edges if they contain
-                         citations not found in moredescriptive edge
+  --disablcitededgemerge 
+                        If set, keeps neighbor-of edges if they contain
+                        citations not found in moredescriptive edge
   --getfamilies         If set, code examines owl files and generates mapping
                         of protein families
   --ftphost FTPHOST     FTP host to download owl or sif files from. Ignored if

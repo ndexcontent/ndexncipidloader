@@ -13,10 +13,10 @@ from mock import MagicMock
 from ndex2.nice_cx_network import NiceCXNetwork
 
 import ndexncipidloader
-from ndexncipidloader.loadndexncipidloader import NDExNciPidLoader
-from ndexncipidloader.loadndexncipidloader import NetworkIssueReport
+from ndexncipidloader.ndexloadncipid import NDExNciPidLoader
+from ndexncipidloader.ndexloadncipid import NetworkIssueReport
 from ndexutil.config import NDExUtilConfig
-from ndexncipidloader import loadndexncipidloader
+from ndexncipidloader import ndexloadncipid
 
 
 class Param(object):
@@ -60,14 +60,14 @@ class TestNDExNciPidLoader(unittest.TestCase):
 
     def test_parse_load_plan(self):
         p = Param()
-        p.loadplan = loadndexncipidloader.get_load_plan()
+        p.loadplan = ndexloadncipid.get_load_plan()
         loader = NDExNciPidLoader(p)
         loader._parse_load_plan()
         self.assertTrue(isinstance(loader._loadplan, dict))
 
     def test_get_style_template(self):
         p = Param()
-        p.style = loadndexncipidloader.get_style()
+        p.style = ndexloadncipid.get_style()
         loader = NDExNciPidLoader(p)
         loader._load_style_template()
         self.assertTrue(loader._template is not None)
@@ -100,10 +100,10 @@ class TestNDExNciPidLoader(unittest.TestCase):
         net.set_name('foo')
         loader = NDExNciPidLoader(None)
         loader._set_wasderivedfrom(net)
-        derived_attr = loadndexncipidloader.DERIVED_FROM_ATTRIB
+        derived_attr = ndexloadncipid.DERIVED_FROM_ATTRIB
         self.assertEqual('<a href="ftp://' +
-                         loadndexncipidloader.DEFAULT_FTP_HOST +
-                         '/' + loadndexncipidloader.DEFAULT_FTP_DIR + '/' +
+                         ndexloadncipid.DEFAULT_FTP_HOST +
+                         '/' + ndexloadncipid.DEFAULT_FTP_DIR + '/' +
                          'foo.owl.gz">foo.owl.gz</a>',
                          net.get_network_attribute(derived_attr)['v'])
 
@@ -112,7 +112,7 @@ class TestNDExNciPidLoader(unittest.TestCase):
         net.set_name('foo')
         loader = NDExNciPidLoader(None)
         loader._set_normalization_version(net)
-        norm_attr = loadndexncipidloader.NORMALIZATIONVERSION_ATTRIB
+        norm_attr = ndexloadncipid.NORMALIZATIONVERSION_ATTRIB
         self.assertEqual('0.1',
                          net.get_network_attribute(norm_attr)['v'])
 
@@ -121,7 +121,7 @@ class TestNDExNciPidLoader(unittest.TestCase):
         net.set_name('foo')
         loader = NDExNciPidLoader(None)
         loader._set_generatedby_in_network_attributes(net)
-        norm_attr = loadndexncipidloader.GENERATED_BY_ATTRIB
+        norm_attr = ndexloadncipid.GENERATED_BY_ATTRIB
         self.assertTrue(' ' + str(ndexncipidloader.__version__) in
                         net.get_network_attribute(norm_attr)['v'])
 
@@ -133,7 +133,7 @@ class TestNDExNciPidLoader(unittest.TestCase):
         self.assertEqual(['pathway'],
                          net.get_network_attribute('networkType')['v'])
 
-        net.set_name(loadndexncipidloader.COMPLETE_INTERACTION_NAME)
+        net.set_name(ndexloadncipid.COMPLETE_INTERACTION_NAME)
         loader._set_type(net)
         self.assertEqual(['pathway', 'interactome'],
                          net.get_network_attribute('networkType')['v'])
@@ -192,7 +192,7 @@ class TestNDExNciPidLoader(unittest.TestCase):
 
     def test_set_network_attributes_from_style_network_complete_net(self):
         net = NiceCXNetwork()
-        net.set_name(loadndexncipidloader.COMPLETE_INTERACTION_NAME)
+        net.set_name(ndexloadncipid.COMPLETE_INTERACTION_NAME)
 
         templatenet = NiceCXNetwork()
         templatenet.set_name('well')

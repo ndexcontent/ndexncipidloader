@@ -16,7 +16,7 @@ from requests.exceptions import HTTPError
 
 
 
-from ndexncipidloader.loadndexncipidloader import GeneSymbolSearcher
+from ndexncipidloader.ndexloadncipid import GeneSymbolSearcher
 
 
 class TestGeneSymbolSearcher(unittest.TestCase):

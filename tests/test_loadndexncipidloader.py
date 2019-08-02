@@ -9,9 +9,9 @@ import shutil
 
 import unittest
 from ndexutil.config import NDExUtilConfig
-from ndexncipidloader import loadndexncipidloader
-from ndexncipidloader.loadndexncipidloader import NetworkAttributes
-from ndexncipidloader.loadndexncipidloader import NetworkAttributesFromTSVFactory
+from ndexncipidloader import ndexloadncipid
+from ndexncipidloader.ndexloadncipid import NetworkAttributes
+from ndexncipidloader.ndexloadncipid import NetworkAttributesFromTSVFactory
 
 
 class TestNdexncipidloader(unittest.TestCase):
@@ -25,8 +25,8 @@ class TestNdexncipidloader(unittest.TestCase):
 
     def test_parse_arguments(self):
         """Tests parse arguments"""
-        res = loadndexncipidloader._parse_arguments('hi',
-                                                    ['foo'])
+        res = ndexloadncipid._parse_arguments('hi',
+                                              ['foo'])
 
         self.assertEqual(res.profile, 'ndexncipidloader')
         self.assertEqual(res.verbose, 0)
@@ -38,7 +38,7 @@ class TestNdexncipidloader(unittest.TestCase):
                     '--networkattrib', 'net',
                     '--style', 'style',
                     '--profile', 'myprofy', 'doublefoo']
-        res = loadndexncipidloader._parse_arguments('hi', someargs)
+        res = ndexloadncipid._parse_arguments('hi', someargs)
 
         self.assertEqual(res.profile, 'myprofy')
         self.assertEqual(res.verbose, 2)
@@ -48,20 +48,20 @@ class TestNdexncipidloader(unittest.TestCase):
     def test_setup_logging(self):
         """ Tests logging setup"""
         try:
-            loadndexncipidloader._setup_logging(None)
+            ndexloadncipid._setup_logging(None)
             self.fail('Expected AttributeError')
         except AttributeError:
             pass
 
         # args.logconf is None
-        res = loadndexncipidloader._parse_arguments('hi', ['--loadplan',
+        res = ndexloadncipid._parse_arguments('hi', ['--loadplan',
                                                            'plan',
                                                            '--networkattrib',
                                                            'net',
                                                            '--style',
                                                            'style',
                                                            'foo'])
-        loadndexncipidloader._setup_logging(res)
+        ndexloadncipid._setup_logging(res)
 
         # args.logconf set to a file
         try:
@@ -91,16 +91,16 @@ args=(sys.stderr,)
 [formatter_formatter]
 format=%(asctime)s %(name)-12s %(levelname)-8s %(message)s""")
 
-            res = loadndexncipidloader._parse_arguments('hi', ['--logconf',
-                                                               logfile,
+            res = ndexloadncipid._parse_arguments('hi', ['--logconf',
+                                                         logfile,
                                                                '--loadplan',
                                                                'plan',
                                                                '--networkattrib',
                                                                'net',
                                                                '--style',
                                                                'style',
-                                                               temp_dir])
-            loadndexncipidloader._setup_logging(res)
+                                                         temp_dir])
+            ndexloadncipid._setup_logging(res)
 
         finally:
             shutil.rmtree(temp_dir)
@@ -119,12 +119,12 @@ format=%(asctime)s %(name)-12s %(levelname)-8s %(message)s""")
                 {server} = dev.ndexbio.org""".format(user=NDExUtilConfig.USER,
                                                      pw=NDExUtilConfig.PASSWORD,
                                                      server=NDExUtilConfig.SERVER))
-            res = loadndexncipidloader.main(['myprog.py', '--conf',
-                                             confile, '--profile', 'hi',
+            res = ndexloadncipid.main(['myprog.py', '--conf',
+                                       confile, '--profile', 'hi',
                                              '--loadplan', 'plan',
                                              '--networkattrib', 'net',
                                              '--style', 'style',
-                                             temp_dir])
+                                       temp_dir])
             self.assertEqual(res, 2)
         finally:
             shutil.rmtree(temp_dir)
@@ -180,7 +180,7 @@ format=%(asctime)s %(name)-12s %(levelname)-8s %(message)s""")
             self.assertEqual(fac.get_network_attributes_obj(), None)
 
             temp_dir = tempfile.mkdtemp()
-            tsvfile = loadndexncipidloader.get_networkattributes()
+            tsvfile = ndexloadncipid.get_networkattributes()
             fac = NetworkAttributesFromTSVFactory(tsvfile, delim='\t')
             na = fac.get_network_attributes_obj()
             self.assertEqual(na.get_labels('a4b7 Integrin signaling'),

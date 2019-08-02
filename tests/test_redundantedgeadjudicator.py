@@ -11,7 +11,7 @@ import unittest
 import mock
 from mock import MagicMock
 
-from ndexncipidloader.loadndexncipidloader import RedundantEdgeAdjudicator
+from ndexncipidloader.ndexloadncipid import RedundantEdgeAdjudicator
 from ndex2.nice_cx_network import NiceCXNetwork
 
 class TestRedundantEdgeAdjudicator(unittest.TestCase):

@@ -11,8 +11,8 @@ import unittest
 import mock
 from mock import MagicMock
 
-from ndexncipidloader import loadndexncipidloader
-from ndexncipidloader.loadndexncipidloader import DirectedEdgeSetter
+from ndexncipidloader import ndexloadncipid
+from ndexncipidloader.ndexloadncipid import DirectedEdgeSetter
 from ndex2.nice_cx_network import NiceCXNetwork
 
 class TestDirectedEdgeSetter(unittest.TestCase):
@@ -52,7 +52,7 @@ class TestDirectedEdgeSetter(unittest.TestCase):
         net = NiceCXNetwork()
         directed = DirectedEdgeSetter.DIRECTED_ATTRIB
         cntr = 1
-        for entry in loadndexncipidloader.DIRECTED_INTERACTIONS:
+        for entry in ndexloadncipid.DIRECTED_INTERACTIONS:
 
             edgeid = net.create_edge(edge_source=0,
                                      edge_target=cntr,

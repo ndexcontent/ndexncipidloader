@@ -8,7 +8,7 @@ import tempfile
 import shutil
 
 import unittest
-from ndexncipidloader.loadndexncipidloader import NetworkIssueReport
+from ndexncipidloader.ndexloadncipid import NetworkIssueReport
 
 
 class TestNetworkIssueReport(unittest.TestCase):

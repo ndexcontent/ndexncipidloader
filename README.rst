@@ -124,7 +124,7 @@ Installation
 Configuration
 -------------
 
-The **loadndexncipidloader.py** requires a configuration file in the following format be created.
+The **ndexloadncipid.py** requires a configuration file in the following format be created.
 The default path for this configuration is :code:`~/.ndexutils.conf` but can be overridden with
 :code:`--conf` flag.
 
@@ -162,7 +162,7 @@ put in current working directory or specify path to **paxtools.jar** with `--pax
 Usage
 -----
 
-For more information invoke :code:`loadndexncipidloader.py -h`
+For more information invoke :code:`ndexloadncipid.py -h`
 
 **Example usage**
 
@@ -170,7 +170,7 @@ This example assumes a valid configuration file with paxtools.jar in the working
 
 .. code-block::
 
-   loadndexncipidloader.py sif
+   ndexloadncipid.py sif
 
 **Example usage with sif files already downloaded**
 
@@ -178,7 +178,7 @@ This example assumes a valid configuration file and the SIF files are located in
 
 .. code-block::
 
-   loadndexncipidloader.py --skipdownload sif
+   ndexloadncipid.py --skipdownload sif
 
 
 Via Docker
@@ -191,7 +191,7 @@ file has been created in current working directory and named :code:`conf`
 
 .. code-block::
 
-   docker run -v `pwd`:`pwd` -w `pwd` coleslawndex/ndexncipidloader:1.0.0 loadndexncipidloader.py --paxtools `pwd`/paxtools.jar --conf conf sif
+   docker run -v `pwd`:`pwd` -w `pwd` coleslawndex/ndexncipidloader:3.0.0 ndexloadncipid.py --paxtools `pwd`/paxtools.jar --conf conf sif
 
 
 Credits

@@ -7,7 +7,6 @@ import sys
 import logging
 from logging import config
 import subprocess
-import csv
 import json
 import pandas as pd
 import requests
@@ -211,6 +210,10 @@ def _parse_arguments(desc, args):
                              'curated by and revision data '
                              'for ncipid networks',
                         default=get_networkattributes())
+    parser.add_argument('--visibility', default='PUBLIC',
+                        choices=['PUBLIC', 'PRIVATE'],
+                        help='Sets visibility of new '
+                             'networks, default (PUBLIC)')
     parser.add_argument('--style',
                         help='Path to NDEx CX file to use for styling'
                              'networks',
@@ -223,11 +226,12 @@ def _parse_arguments(desc, args):
     parser.add_argument('--singlefile',
                         help='Only process file matching name in '
                              '<sifdir>', default=None)
-    parser.add_argument('--paxtools',
-                        help='Path to paxtools.jar file used to convert'
+    parser.add_argument('--paxtools', default='paxtools.jar',
+                        help='Full path paxtools.jar file used to convert'
                              'owl file to sif file. Ignored if '
-                             '--skipdownload flag is set. Default assumes'
-                             'paxtools.jar is in current working directory')
+                             '--skipdownload flag is set. The default '
+                             '(default paxtools.jar) assumes paxtools.jar'
+                             'is in current working directory')
     parser.add_argument('--skipdownload', action='store_true',
                         help='If set, skips download of owl files'
                              'and conversion. The program assumes'
@@ -238,10 +242,6 @@ def _parse_arguments(desc, args):
                         help='If set, skips gene symbol checker that'
                              'examines all nodes of type protein'
                              'and verifies they are symbols')
-    parser.add_argument('--disablcitededgemerge', action='store_true',
-                        help='If set, keeps neighbor-of edges if they ' +
-                             'contain citations not found in more' +
-                             'descriptive edge')
     parser.add_argument('--getfamilies', action='store_true',
                         help='If set, code examines owl files and generates '
                              'mapping of protein families')
@@ -1576,6 +1576,10 @@ class NDExNciPidLoader(object):
         self._netattrib = None
         self._netattribfac = netattribfac
         self._networkupdators = networkupdators
+        try:
+            self._visibility = args.visibility
+        except AttributeError:
+            self._visibility = 'PUBLIC'
 
     def _parse_config(self):
         """
@@ -1882,9 +1886,8 @@ class NDExNciPidLoader(object):
             network.update_to(network_update_key, self._server, self._user, self._pass,
                               user_agent=self._get_user_agent())
         else:
-            network.upload_to(self._server, self._user,
-                              self._pass,
-                              user_agent=self._get_user_agent())
+            self._ndex.save_new_network(network.to_cx(),
+                                        visibility=self._visibility)
         return report
 
     def _add_node_types_in_network_to_report(self, network, report):
@@ -2306,7 +2309,7 @@ def main(args):
     
     Example usage:
     
-    loadncipidloader.py tmpdatadir/
+    ndexloadncipid.py tmpdatadir/
     
     The above example uses the default ftp server and assumes
     paxtools.jar is in the current working directory.

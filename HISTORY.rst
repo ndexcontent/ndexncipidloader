@@ -2,6 +2,17 @@
 History
 =======
 
+3.0.0 (2019-08-02)
+-------------------
+
+* Renamed command line tool from **loadndexncipidloader.py** to **ndexloadncipid.py** to be more consistent with other loaders. Since this is a breaking change bumped to version 3.0.0
+
+* Added **--visibility** flag which lets caller dictate whether newly added networks are set to PUBLIC (default) or PRIVATE
+
+* Removed parameter **--disablcitededgemerge** since the changes in 2.0.0 causes this to no longer have any effect
+
+* Set default for **--paxtools** flag to be **paxtools.jar** which assumes the tool is in current working directory
+
 2.0.0 (2019-07-16)
 ------------------
 

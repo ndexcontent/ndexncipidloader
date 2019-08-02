@@ -11,7 +11,7 @@ import unittest
 import mock
 from mock import MagicMock
 from ndex2.nice_cx_network import NiceCXNetwork
-from ndexncipidloader.loadndexncipidloader import UniProtToGeneSymbolUpdater
+from ndexncipidloader.ndexloadncipid import UniProtToGeneSymbolUpdater
 
 
 class TestUniProtToGeneSymbolUpdater(unittest.TestCase):

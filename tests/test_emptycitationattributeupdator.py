@@ -11,7 +11,7 @@ import unittest
 import mock
 from mock import MagicMock
 
-from ndexncipidloader.loadndexncipidloader import EmptyCitationAttributeUpdator
+from ndexncipidloader.ndexloadncipid import EmptyCitationAttributeUpdator
 from ndex2.nice_cx_network import NiceCXNetwork
 
 class TestEmptyCitationAttributeRemover(unittest.TestCase):

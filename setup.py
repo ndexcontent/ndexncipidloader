@@ -57,7 +57,7 @@ setup(
                                         'networkattributes.tsv',
                                         'style.cx',
                                         'gene_symbol_mapping.json']},
-    scripts=[ 'ndexncipidloader/loadndexncipidloader.py'],
+    scripts=['ndexncipidloader/ndexloadncipid.py'],
     setup_requires=setup_requirements,
     test_suite='tests',
     tests_require=test_requirements,

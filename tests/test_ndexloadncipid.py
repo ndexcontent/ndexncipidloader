@@ -14,7 +14,7 @@ from ndexncipidloader.ndexloadncipid import NetworkAttributes
 from ndexncipidloader.ndexloadncipid import NetworkAttributesFromTSVFactory
 
 
-class TestNdexncipidloader(unittest.TestCase):
+class TestNdexncipidloaderMain(unittest.TestCase):
     """Tests for `ndexncipidloader` package."""
 
     def setUp(self):

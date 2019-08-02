@@ -124,6 +124,7 @@ format=%(asctime)s %(name)-12s %(levelname)-8s %(message)s""")
                                              '--loadplan', 'plan',
                                              '--networkattrib', 'net',
                                              '--style', 'style',
+                                             '--skipdownload',
                                        temp_dir])
             self.assertEqual(res, 2)
         finally:

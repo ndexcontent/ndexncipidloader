@@ -4,6 +4,7 @@
 import os
 import argparse
 import sys
+import time
 import logging
 from logging import config
 import subprocess
@@ -163,6 +164,10 @@ def get_gene_symbol_mapping():
     return os.path.join(get_package_dir(), GENE_SYMBOL_MAPPING)
 
 
+class Formatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
+    pass
+
+
 def _parse_arguments(desc, args):
     """
     Parses command line arguments
@@ -170,7 +175,7 @@ def _parse_arguments(desc, args):
     :param args:
     :return:
     """
-    help_fm = argparse.RawDescriptionHelpFormatter
+    help_fm = Formatter
     parser = argparse.ArgumentParser(description=desc,
                                      formatter_class=help_fm)
     parser.add_argument('--version', action='version',
@@ -180,9 +185,7 @@ def _parse_arguments(desc, args):
                                           'file to use to load '
                                           'NDEx credentials which means'
                                           'configuration under [XXX] will be'
-                                          'used '
-                                          '(default '
-                                          'ndexncipidloader)',
+                                          'used',
                         default='ndexncipidloader')
     parser.add_argument('--logconf', default=None,
                         help='Path to python logging configuration file in '
@@ -190,19 +193,18 @@ def _parse_arguments(desc, args):
                              'https://docs.python.org/3/library/logging.html '
                              'for more information. '
                              'Setting this overrides -v|--verbose parameter '
-                             'which uses default logger. (default None)')
+                             'which uses default logger.')
 
     parser.add_argument('--conf', help='Configuration file to load '
                                        '(default ~/' +
-                                       NDExUtilConfig.CONFIG_FILE)
+                                       NDExUtilConfig.CONFIG_FILE + ')')
     parser.add_argument('--genesymbol',
                         help='Use alternate gene symbol mapping file',
                         default=get_gene_symbol_mapping())
     parser.add_argument('--loadplan', help='Use alternate load plan file',
                         default=get_load_plan())
     parser.add_argument('--iconurl',
-                        help='Sets network attribute value __iconurl '
-                             '(default ' + ICON_URL + ')',
+                        help='Sets network attribute value __iconurl ',
                         default=ICON_URL)
     parser.add_argument('--networkattrib',
                         help='Use alternate Tab delimited file containing '
@@ -213,16 +215,20 @@ def _parse_arguments(desc, args):
     parser.add_argument('--visibility', default='PUBLIC',
                         choices=['PUBLIC', 'PRIVATE'],
                         help='Sets visibility of new '
-                             'networks, default (PUBLIC)')
+                             'networks')
+    parser.add_argument('--indexlevel', default='all',
+                        choices=['none', 'meta', 'all'],
+                        help='Sets how new networks are indexed')
+    parser.add_argument('--showcase', default=True, type=bool,
+                        help='If True new networks are showcased')
     parser.add_argument('--style',
-                        help='Path to NDEx CX file to use for styling'
+                        help='Path to NDEx CX file to use for styling '
                              'networks',
                         default=get_style())
     rel_ver = datetime.now().strftime('%b-%Y').upper()
     parser.add_argument('--releaseversion',
-                        help='Sets version network attribute '
-                             '(default current month and year Example: ' +
-                             rel_ver + ')', default=rel_ver)
+                        help='Sets version network attribute',
+                        default=rel_ver)
     parser.add_argument('--singlefile',
                         help='Only process file matching name in '
                              '<sifdir>', default=None)
@@ -230,38 +236,36 @@ def _parse_arguments(desc, args):
                         help='Full path paxtools.jar file used to convert'
                              'owl file to sif file. Ignored if '
                              '--skipdownload flag is set. The default '
-                             '(default paxtools.jar) assumes paxtools.jar'
+                             'assumes paxtools.jar '
                              'is in current working directory')
     parser.add_argument('--skipdownload', action='store_true',
-                        help='If set, skips download of owl files'
-                             'and conversion. The program assumes'
-                             'the <sifdir> directory set as'
-                             'the last argument on the command line'
+                        help='If set, skips download of owl files '
+                             'and conversion. The program assumes '
+                             'the <sifdir> directory set as '
+                             'the last argument on the command line '
                              'to this program contains sif files')
     parser.add_argument('--skipchecker', action='store_true',
-                        help='If set, skips gene symbol checker that'
-                             'examines all nodes of type protein'
+                        help='If set, skips gene symbol checker that '
+                             'examines all nodes of type protein '
                              'and verifies they are symbols')
     parser.add_argument('--getfamilies', action='store_true',
                         help='If set, code examines owl files and generates '
                              'mapping of protein families')
     parser.add_argument('--ftphost',
                         help='FTP host to download owl or sif files from. '
-                             'Ignored if --skipdownload flag set '
-                             '(default ' + DEFAULT_FTP_HOST + ')',
+                             'Ignored if --skipdownload flag set ',
                         default=DEFAULT_FTP_HOST)
     parser.add_argument('--ftpdir',
                         help='FTP directory to download owl or sif files '
-                             'from. Ignored if --skipdownload flag set '
-                             '(default ' + DEFAULT_FTP_DIR + ')',
+                             'from. Ignored if --skipdownload flag set ',
                         default=DEFAULT_FTP_DIR)
     parser.add_argument('sifdir',
                         help='Directory containing .sif files to parse. '
-                             'Under this directory OWL files'
+                             'Under this directory OWL files '
                              'will be downloaded and '
                              'converted to sif unless --skipdownload '
                              'flag is set, in which case this '
-                             'script assumes the'
+                             'script assumes the '
                              '*.sif files already exist')
     parser.add_argument('--verbose', '-v', action='count', default=0,
                         help='Increases verbosity of logger to standard '
@@ -1580,6 +1584,17 @@ class NDExNciPidLoader(object):
             self._visibility = args.visibility
         except AttributeError:
             self._visibility = 'PUBLIC'
+        try:
+            self._indexlevel = args.indexlevel
+        except AttributeError:
+            self._indexlevel = 'ALL'
+
+        try:
+            self._showcase = args.showcase
+        except AttributeError:
+            self._showcase = True
+
+        self._networksystemproperty_retry = 3
 
     def _parse_config(self):
         """
@@ -1883,12 +1898,54 @@ class NDExNciPidLoader(object):
         self._add_node_types_in_network_to_report(network, report)
 
         if network_update_key is not None:
+            logger.debug('Updating existing network: ' + network.get_name())
             network.update_to(network_update_key, self._server, self._user, self._pass,
                               user_agent=self._get_user_agent())
         else:
-            self._ndex.save_new_network(network.to_cx(),
-                                        visibility=self._visibility)
+            logger.debug('Saving new network: ' + network.get_name())
+            neturl = self._ndex.save_new_network(network.to_cx(),
+                                                 visibility=self._visibility)
+            updateprops = self._update_network_system_properties(neturl)
+            if updateprops is not None:
+                report.addissues('Updating network system properties', [updateprops])
         return report
+
+    def _update_network_system_properties(self, neturl):
+        """
+        Updates network index_level and showcase values for
+        network specified by 'neturl'
+        :param neturl: Full URL to network just saved
+        :return: None upon success or string with error message
+        :rtype: str
+        """
+        net_uuid = re.sub('^.*\/', '', neturl)
+        prop_dict = {'index_level': self._indexlevel.upper(),
+                     'showcase': self._showcase}
+
+        retry_count = 0
+        while retry_count < self._networksystemproperty_retry:
+            logger.debug('Attempting to update network (' +
+                        net_uuid + ') system properties: ' +
+                        str(prop_dict))
+            try:
+                res = self._ndex.set_network_system_properties(net_uuid,
+                                                               prop_dict)
+                if res == '':
+                    return None
+            except Exception as e:
+                res = 'Error updating network ( ' + \
+                       net_uuid + ' ) system properties' + str(e)
+
+            retry_count += 1
+            logger.debug('Retry # ' + str(retry_count) + ' got error ' +
+                        res + ' attempting to update network system' +
+                        'properties for network ' + net_uuid +
+                        '. Sleeping and retrying')
+            time.sleep(self._networksystemproperty_wait)
+
+        return 'After ' + str(retry_count) + ' retries receiving ' +\
+               str(res) +\
+               ' when trying to update network with id: ' + net_uuid
 
     def _add_node_types_in_network_to_report(self, network, report):
         """

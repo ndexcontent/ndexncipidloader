@@ -207,6 +207,54 @@ class TestNDExNciPidLoader(unittest.TestCase):
         self.assertTrue('This network' in net.get_network_attribute('description')['v'])
         self.assertEqual('some', net.get_network_attribute('organism')['v'])
 
+    def test_update_network_system_properties_success(self):
+        net = NiceCXNetwork()
+        net.set_name('foo')
+        loader = NDExNciPidLoader(None)
+        loader._ndex = MagicMock()
+        loader._ndex.set_network_system_properties = MagicMock(return_value='')
+        perm_dict = {'index_level': 'ALL',
+                     'showcase': True}
+        loader._update_network_system_properties('http://public.ndexbio.org'
+                                                 '/v2/network/someid')
+        loader._ndex.set_network_system_properties.assert_called_with('someid',
+                                                                      perm_dict)
+
+    def test_update_network_system_properties_failure(self):
+        net = NiceCXNetwork()
+        net.set_name('foo')
+        loader = NDExNciPidLoader(None)
+        loader._ndex = MagicMock()
+        loader._networksystemproperty_retry = 1
+        loader._networksystemproperty_wait = 0
+        loader._ndex.set_network_system_properties = MagicMock(return_value='error')
+        perm_dict = {'index_level': 'ALL',
+                     'showcase': True}
+        res = loader._update_network_system_properties('http://public.'
+                                                       'ndexbio.org'
+                                                       '/v2/network/someid')
+        self.assertTrue('After 1 retries' in res)
+        loader._ndex.set_network_system_properties.assert_called_with('someid',
+                                                                      perm_dict)
+
+    def test_update_network_system_properties_exception_then_okay(self):
+        net = NiceCXNetwork()
+        net.set_name('foo')
+        loader = NDExNciPidLoader(None)
+        loader._ndex = MagicMock()
+        loader._networksystemproperty_wait = 0
+        loader._ndex.set_network_system_properties = MagicMock(side_effect=[Exception('foo'), ''])
+        perm_dict = {'index_level': 'ALL',
+                     'showcase': True}
+        res = loader._update_network_system_properties('http://public.'
+                                                       'ndexbio.org'
+                                                       '/v2/network/someid')
+        self.assertEqual(None, res)
+        loader._ndex.set_network_system_properties.assert_called_with('someid',
+                                                                      perm_dict)
+
+        cnt = loader._ndex.set_network_system_properties.call_count
+        self.assertEqual(2, cnt)
 
 
 

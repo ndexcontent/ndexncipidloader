@@ -5,7 +5,7 @@ History
 3.1.0 (2019-09-11)
 -------------------
 
-* Added **--disableshowcase** flag that lets caller disable showcasing of **NEWLY** added networks which enabled by default.
+* Added **--disableshowcase** flag that lets caller disable showcasing of **NEWLY** added networks which is enabled by default.
 
 * Added **--indexlevel** flag that lets caller set type of indexing performed on **NEWLY** added networks. Default is full indexing (all).
 

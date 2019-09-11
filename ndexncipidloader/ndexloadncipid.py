@@ -1595,6 +1595,7 @@ class NDExNciPidLoader(object):
             self._showcase = True
 
         self._networksystemproperty_retry = 3
+        self._networksystemproperty_wait = 1
 
     def _parse_config(self):
         """

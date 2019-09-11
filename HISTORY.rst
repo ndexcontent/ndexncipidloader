@@ -2,6 +2,13 @@
 History
 =======
 
+3.1.0 (2019-09-11)
+-------------------
+
+* Added **--showcase** flag that lets caller set whether **NEWLY** added networks are visible in user's home page on NDEx. Default is to showcase (True).
+
+* Added **--indexlevel** flag that lets caller set type of indexing performed on **NEWLY** added networks. Default is full indexing (ALL).
+
 3.0.0 (2019-08-02)
 -------------------
 

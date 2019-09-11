@@ -219,8 +219,8 @@ def _parse_arguments(desc, args):
     parser.add_argument('--indexlevel', default='all',
                         choices=['none', 'meta', 'all'],
                         help='Sets how new networks are indexed')
-    parser.add_argument('--showcase', default=True, type=bool,
-                        help='If True new networks are showcased')
+    parser.add_argument('--disableshowcase', default=False, action='store_true',
+                        help='If set, new networks are NOT showcased')
     parser.add_argument('--style',
                         help='Path to NDEx CX file to use for styling '
                              'networks',
@@ -1587,11 +1587,13 @@ class NDExNciPidLoader(object):
         try:
             self._indexlevel = args.indexlevel
         except AttributeError:
+            logger.error('showcase was not found in args. Setting value to ALL')
             self._indexlevel = 'ALL'
 
         try:
-            self._showcase = args.showcase
+            self._showcase = not args.disableshowcase
         except AttributeError:
+            logger.error('showcase was not found in args. Setting value to True')
             self._showcase = True
 
         self._networksystemproperty_retry = 3
@@ -1926,8 +1928,8 @@ class NDExNciPidLoader(object):
         retry_count = 0
         while retry_count < self._networksystemproperty_retry:
             logger.debug('Attempting to update network (' +
-                        net_uuid + ') system properties: ' +
-                        str(prop_dict))
+                         net_uuid + ') system properties: ' +
+                         str(prop_dict))
             try:
                 res = self._ndex.set_network_system_properties(net_uuid,
                                                                prop_dict)
@@ -1939,9 +1941,9 @@ class NDExNciPidLoader(object):
 
             retry_count += 1
             logger.debug('Retry # ' + str(retry_count) + ' got error ' +
-                        res + ' attempting to update network system' +
-                        'properties for network ' + net_uuid +
-                        '. Sleeping and retrying')
+                         res + ' attempting to update network system' +
+                         'properties for network ' + net_uuid +
+                         '. Sleeping and retrying')
             time.sleep(self._networksystemproperty_wait)
 
         return 'After ' + str(retry_count) + ' retries receiving ' +\

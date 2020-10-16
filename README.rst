@@ -193,7 +193,7 @@ file has been created in current working directory and named :code:`conf`
 
 .. code-block::
 
-   docker run -v `pwd`:`pwd` -w `pwd` coleslawndex/ndexncipidloader:3.1.0 ndexloadncipid.py --paxtools `pwd`/paxtools.jar --conf conf sif
+   docker run -v `pwd`:`pwd` -w `pwd` coleslawndex/ndexncipidloader:3.1.1 ndexloadncipid.py --paxtools `pwd`/paxtools.jar --conf conf sif
 
 
 Credits

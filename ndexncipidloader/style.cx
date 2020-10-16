@@ -9645,10 +9645,6 @@
         "type" : "DISCRETE",
         "definition" : "COL=type,T=string,K=0=phenotype,V=0=16,K=1=complex,V=1=14,K=2=protein,V=2=12"
       },
-      "NODE_LABEL_POSITION" : {
-        "type" : "DISCRETE",
-        "definition" : "COL=type,T=string,K=0=smallmolecule,V=0=C,C,c,0.00,0.00,K=1=antibody,V=1=C,C,c,0.00,0.00,K=2=rna,V=2=C,C,c,0.00,0.00,K=3=chemical,V=3=C,C,c,0.00,0.00,K=4=stimulus,V=4=C,C,c,0.00,0.00,K=5=mirna,V=5=C,C,c,0.00,0.00,K=6=mrna,V=6=C,C,c,0.00,0.00,K=7=signal,V=7=C,C,c,0.00,0.00,K=8=drug,V=8=C,C,c,0.00,0.00"
-      },
       "NODE_SHAPE" : {
         "type" : "DISCRETE",
         "definition" : "COL=type,T=string,K=0=phenotype,V=0=ROUND_RECTANGLE,K=1=antibody,V=1=VEE,K=2=disease,V=2=HEXAGON,K=3=rna,V=3=RECTANGLE,K=4=gene,V=4=RECTANGLE,K=5=stimulus,V=5=TRIANGLE,K=6=biologicalprocess,V=6=ROUND_RECTANGLE,K=7=mrna,V=7=RECTANGLE,K=8=cellularcomponent,V=8=ROUND_RECTANGLE,K=9=drug,V=9=DIAMOND,K=10=molecularfunction,V=10=ROUND_RECTANGLE,K=11=geneproduct,V=11=RECTANGLE,K=12=smallmolecule,V=12=DIAMOND,K=13=chemical,V=13=ELLIPSE,K=14=mirna,V=14=RECTANGLE,K=15=variant,V=15=RECTANGLE,K=16=pathway,V=16=ROUND_RECTANGLE,K=17=signal,V=17=TRIANGLE"

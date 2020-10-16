@@ -2,6 +2,12 @@
 History
 =======
 
+3.1.1 (2020-10-16)
+-------------------
+
+* Removed NODE_LABEL_POSITION discrete mapping from style since it is
+  not compatible with CX 2.0
+
 3.1.0 (2019-09-11)
 -------------------
 

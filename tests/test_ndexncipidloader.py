@@ -17,6 +17,7 @@ from ndexncipidloader.ndexloadncipid import NDExNciPidLoader
 from ndexncipidloader.ndexloadncipid import NetworkIssueReport
 from ndexutil.config import NDExUtilConfig
 from ndexncipidloader import ndexloadncipid
+from ndexncipidloader.exceptions import NDExNciPidLoaderError
 
 
 class Param(object):
@@ -256,6 +257,98 @@ class TestNDExNciPidLoader(unittest.TestCase):
         cnt = loader._ndex.set_network_system_properties.call_count
         self.assertEqual(2, cnt)
 
+    def test_apply_simple_spring_layout(self):
+        net = NiceCXNetwork()
+        for x in range(2):
+            net.create_node('node' + str(x))
+        loader = NDExNciPidLoader(None)
+        loader._apply_simple_spring_layout(net)
+        res = net.get_opaque_aspect('cartesianLayout')
+        self.assertEqual(2, len(res))
+        self.assertTrue('node' in res[0])
+        self.assertTrue(res[0]['node'] >= 0)
+        self.assertTrue('x' in res[0])
+        self.assertTrue('y' in res[0])
+        self.assertTrue('node' in res[1])
+        self.assertTrue(res[1]['node'] >= 1)
+        self.assertTrue('x' in res[1])
+        self.assertTrue('y' in res[1])
+
+        net = NiceCXNetwork()
+        for x in range(10):
+            net.create_node('node' + str(x))
+        loader._apply_simple_spring_layout(net)
+        self.assertEqual(10,
+                         len(net.get_opaque_aspect('cartesianLayout')))
+
+        net = NiceCXNetwork()
+        for x in range(20):
+            net.create_node('node' + str(x))
+        loader._apply_simple_spring_layout(net)
+        self.assertEqual(20,
+                         len(net.get_opaque_aspect('cartesianLayout')))
+
+        net = NiceCXNetwork()
+        for x in range(100):
+            net.create_node('node' + str(x))
+        loader._apply_simple_spring_layout(net)
+        self.assertEqual(100,
+                         len(net.get_opaque_aspect('cartesianLayout')))
+
+    def test_apply_cytoscape_layout_ping_failed(self):
+        p = MagicMock()
+        p.layout = 'grid'
+        mockpy4 = MagicMock()
+        mockpy4.cytoscape_ping = MagicMock(side_effect=Exception('error'))
+        loader = NDExNciPidLoader(p, py4cyto=mockpy4)
+        net = NiceCXNetwork()
+        try:
+            loader._apply_cytoscape_layout(net)
+            self.fail('Expected NDExNciPidLoaderError')
+        except NDExNciPidLoaderError as e:
+            self.assertEqual('Cytoscape needs to be running '
+                             'to run layout: grid', str(e))
+
+    def test_apply_cytoscape_layout_networks_not_in_dict(self):
+        temp_dir = tempfile.mkdtemp()
+        try:
+            p = MagicMock()
+            p.layout = 'grid'
+            p.sifdir = temp_dir
+            mockpy4 = MagicMock()
+            mockpy4.import_network_from_file = MagicMock(return_value={})
+            loader = NDExNciPidLoader(p, py4cyto=mockpy4)
+            net = NiceCXNetwork()
+            for x in range(10):
+                net.create_node('node' + str(x))
+            try:
+                loader._apply_cytoscape_layout(net)
+                self.fail('Expected NDExNciPidLoaderError')
+            except NDExNciPidLoaderError as e:
+                self.assertTrue(str(e).startswith('Error network view'))
+        finally:
+            shutil.rmtree(temp_dir)
+
+    def test_apply_cytoscape_layout_networks_success(self):
+        temp_dir = tempfile.mkdtemp()
+        try:
+            p = MagicMock()
+            p.layout = 'grid'
+            p.sifdir = temp_dir
+            mockpy4 = MagicMock()
+            imp_res = {'networks': ['netid']}
+            mockpy4.import_network_from_file = MagicMock(return_value=imp_res)
+            mockpy4.export_network = MagicMock(return_value='')
+            loader = NDExNciPidLoader(p, py4cyto=mockpy4)
+            loader._ndexextra.extract_layout_aspect_from_cx = MagicMock(return_value={'cartesianLayout': []})
+            net = NiceCXNetwork()
+            for x in range(10):
+                net.create_node('node' + str(x))
+            loader._apply_cytoscape_layout(net)
+            self.assertEqual([{'cartesianLayout': []}],
+                             net.get_opaque_aspect('cartesianLayout'))
+        finally:
+            shutil.rmtree(temp_dir)
 
 
 

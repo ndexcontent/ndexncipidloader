@@ -28,6 +28,9 @@ from ndex2.client import Ndex2
 import ndex2
 from ndexncipidloader.exceptions import NDExNciPidLoaderError
 from ndexutil.config import NDExUtilConfig
+from ndexutil.cytoscape import Py4CytoscapeWrapper
+from ndexutil.cytoscape import DEFAULT_CYREST_API
+from ndexutil.ndex import NDExExtraUtils
 import ndexncipidloader
 
 logger = logging.getLogger(__name__)
@@ -267,6 +270,18 @@ def _parse_arguments(desc, args):
                              'flag is set, in which case this '
                              'script assumes the '
                              '*.sif files already exist')
+    parser.add_argument('--layout', default='-',
+                        help='Specifies layout '
+                             'algorithm to run. If Cytoscape is running '
+                             'and py4cytoscape is loaded any layout from '
+                             'Cytoscape can be used. If "-" is passed in '
+                             'force-directed-cl from Cytoscape will '
+                             'be used. If no Cytoscape is available, '
+                             '"spring" from networkx is supported')
+    parser.add_argument('--cyresturl',
+                        default=DEFAULT_CYREST_API,
+                        help='URL of CyREST API. Default value '
+                             'is default for locally running Cytoscape')
     parser.add_argument('--verbose', '-v', action='count', default=0,
                         help='Increases verbosity of logger to standard '
                              'error for log messages in this module and '
@@ -1557,7 +1572,9 @@ class NDExNciPidLoader(object):
 
     def __init__(self, args,
                  netattribfac=None,
-                 networkupdators=None):
+                 networkupdators=None,
+                 py4cyto=Py4CytoscapeWrapper(),
+                 ndexextra=NDExExtraUtils()):
         """
         Constructor
 
@@ -1580,6 +1597,8 @@ class NDExNciPidLoader(object):
         self._netattrib = None
         self._netattribfac = netattribfac
         self._networkupdators = networkupdators
+        self._py4 = py4cyto
+        self._ndexextra = ndexextra
         try:
             self._visibility = args.visibility
         except AttributeError:
@@ -1810,6 +1829,66 @@ class NDExNciPidLoader(object):
         cartesian_aspect = self._cartesian(my_networkx)
         network.set_opaque_aspect("cartesianLayout", cartesian_aspect)
 
+    def _apply_cytoscape_layout(self, network):
+        """
+        Applies Cytoscape layout on network
+        :param network:
+        :return:
+        """
+
+        try:
+            self._py4.cytoscape_ping()
+        except Exception as e:
+            raise NDExNciPidLoaderError('Cytoscape needs to be running to run '
+                                        'layout: ' + str(self._args.layout))
+
+        tmp_cx_file = os.path.join(self._args.sifdir, 'tmp.cx')
+
+        with open(tmp_cx_file, 'w') as f:
+            json.dump(network.to_cx(), f)
+
+        annotated_cx_file = os.path.join(self._args.sifdir, 'annotated.tmp.cx')
+
+        self._ndexextra.add_node_id_as_node_attribute(cxfile=tmp_cx_file,
+                                                      outcxfile=annotated_cx_file)
+        file_size = os.path.getsize(annotated_cx_file)
+
+        logger.info('Importing network from file: ' + annotated_cx_file +
+                    ' (' + str(file_size) + ' bytes) into Cytoscape')
+        net_dict = self._py4.import_network_from_file(annotated_cx_file,
+                                                      base_url=self._args.cyresturl)
+        if 'networks' not in net_dict:
+            logger.fatal('Error network view could not '
+                         'be created, this could be cause '
+                         'this network is larger then '
+                         '100,000 edges. Try increasing '
+                         'viewThreshold property in '
+                         'Cytoscape preferences')
+            return 1
+        os.unlink(annotated_cx_file)
+        net_suid = net_dict['networks'][0]
+
+        logger.info('Applying layout ' + self._args.layout +
+                    ' on network with suid: ' +
+                    str(net_suid) + ' in Cytoscape')
+        res = self._py4.layout_network(layout_name=self._args.layout,
+                                       network=net_suid,
+                                       base_url=self._args.cyresturl)
+        logger.debug(res)
+
+        os.unlink(tmp_cx_file)
+
+        logger.info('Writing cx to: ' + tmp_cx_file)
+        res = self._py4.export_network(filename=tmp_cx_file, type='CX',
+                                       network=net_suid,
+                                       base_url=self._args.cyresturl)
+        self._py4.delete_network(network=net_suid,
+                                 base_url=self._args.cyresturl)
+        logger.debug(res)
+
+        layout_aspect = self._ndexextra.extract_layout_aspect_from_cx(input_cx_file=tmp_cx_file)
+        network.set_opaque_aspect('cartesianLayout', layout_aspect)
+
     def _process_sif(self, file_name):
         """
         Processes sif file
@@ -1865,12 +1944,18 @@ class NDExNciPidLoader(object):
                               'Skipping Save to NDEx'])
             return report
 
-        self._apply_simple_spring_layout(network)
-
-        network_update_key = self._net_summaries.get(network.get_name().upper())
-
         # apply style to network
         network.apply_style_from_network(self._template)
+
+        if self._args.layout is not None:
+            if self._args.layout == 'spring':
+                self._apply_simple_spring_layout(network)
+            else:
+                if self._args.layout == '-':
+                    self._args.layout = 'force-directed-cl'
+                self._apply_cytoscape_layout(network)
+
+        network_update_key = self._net_summaries.get(network.get_name().upper())
 
         # set the version in the network
         self._set_version_in_network_attributes(network)

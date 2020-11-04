@@ -2,11 +2,13 @@
 History
 =======
 
-3.2.0 (2020-11-04)
+4.0.0 (2020-11-04)
 -------------------
 
-* Added **--layout** flag that lets one run Cytoscape layouts if
-  Cytoscape is running
+* New default behavior: **force-directed-cl** layout is now applied on
+  networks via py4cytoscape library and a running instance of Cytoscape.
+  Alternate Cytoscape layouts and the networkx "spring" layout can be
+  run by setting appropriate value via the new **--layout** flag
 
 3.1.1 (2020-10-16)
 -------------------

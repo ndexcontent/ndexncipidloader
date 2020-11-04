@@ -105,6 +105,7 @@ Dependencies
 * `biothings_client <https://pypi.org/project/biothings-client>`_
 * `requests <https://pypi.org/project/requests>`_
 * `pandas <https://pypi.org/project/pandas>`_
+* `py4cytoscape <https://pypi.org/project/py4cytoscape>`_
 
 
 Compatibility
@@ -157,8 +158,10 @@ Required external tool
 
 Paxtools is needed to convert the OWL files to SIF format.
 
-Please download **paxtools.jar** (http://www.biopax.org/Paxtools/) (requires Java 8+) and
-put in current working directory or specify path to **paxtools.jar** with `--paxtools` flag on
+Please download **paxtools.jar** (http://www.biopax.org/Paxtools/)
+(requires Java 8+) and put in current working directory
+
+Or specify path to **paxtools.jar** with :code:`--paxtools` flag on
 **loadnexncipidloader.py**
 
 Usage
@@ -181,19 +184,6 @@ This example assumes a valid configuration file and the SIF files are located in
 .. code-block::
 
    ndexloadncipid.py --skipdownload sif
-
-
-Via Docker
-~~~~~~~~~~~~~~~~~~~~~~
-
-**Example usage**
-
-This example **paxtools.jar** is in current directory, and a configuration
-file has been created in current working directory and named :code:`conf`
-
-.. code-block::
-
-   docker run -v `pwd`:`pwd` -w `pwd` coleslawndex/ndexncipidloader:3.1.1 ndexloadncipid.py --paxtools `pwd`/paxtools.jar --conf conf sif
 
 
 Credits

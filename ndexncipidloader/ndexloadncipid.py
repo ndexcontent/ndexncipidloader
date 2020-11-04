@@ -1858,13 +1858,13 @@ class NDExNciPidLoader(object):
         net_dict = self._py4.import_network_from_file(annotated_cx_file,
                                                       base_url=self._args.cyresturl)
         if 'networks' not in net_dict:
-            logger.fatal('Error network view could not '
-                         'be created, this could be cause '
-                         'this network is larger then '
-                         '100,000 edges. Try increasing '
-                         'viewThreshold property in '
-                         'Cytoscape preferences')
-            return 1
+            raise NDExNciPidLoaderError('Error network view could not '
+                                        'be created, this could be cause '
+                                        'this network is larger then '
+                                        '100,000 edges. Try increasing '
+                                        'viewThreshold property in '
+                                        'Cytoscape preferences')
+
         os.unlink(annotated_cx_file)
         net_suid = net_dict['networks'][0]
 

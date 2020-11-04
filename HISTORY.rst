@@ -2,6 +2,12 @@
 History
 =======
 
+3.2.0 (2020-11-04)
+-------------------
+
+* Added **--layout** flag that lets one run Cytoscape layouts if
+  Cytoscape is running
+
 3.1.1 (2020-10-16)
 -------------------
 

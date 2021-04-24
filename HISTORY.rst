@@ -2,6 +2,12 @@
 History
 =======
 
+4.0.1 (TBD)
+-------------
+
+* Fixed duplicate node issue by removing nodes and edges if a family node, contains
+  the node in its `memberlist` and both nodes have the same edges.
+
 4.0.0 (2020-11-04)
 -------------------
 

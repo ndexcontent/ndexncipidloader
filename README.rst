@@ -97,6 +97,8 @@ following these conventions:
 
 **12\)** By default each network is made public with full indexed and showcased (visible in user's home network list page)
 
+**NOTE:** `gene_symbol_mapping.json`_ was originally extracted from `here <https://github.com/ndexbio/ndexutils/blob/master/ndexutil/ebs/gene_symbol_mapping.json>`__ but the gene families were updated by calling `ndexloadncipid.py --getfamilies sifdir/` which calls  https://mygene.info via `biothings <https://pypi.org/project/biothings-client/>`__ Python client
+
 Dependencies
 ------------
 

@@ -60,7 +60,7 @@ class Attribute(object):
         """
         return self._data_type
 
-    def set_value(self, data_type):
+    def set_data_type(self, data_type):
         """
         Sets edge annotation/attribute data type
 
@@ -81,6 +81,7 @@ class NetworkEdgeAttribute(Attribute):
         super(NetworkEdgeAttribute, self).__init__(name=name,
                                                    value=value,
                                                    data_type=data_type)
+        self._equalityfailreason = None
 
     def add_attribute_to_edge(self, net_cx=None, edge_id=None):
         """
@@ -124,22 +125,29 @@ class NetworkEdgeAttribute(Attribute):
         if self._value != other.get_value():
             if isinstance(self._value, list) and\
                  isinstance(other.get_value(), list):
-                my_values = list(set(self._value)).sort()
-                other_values = list(set(other.get_value())).sort()
+                my_values = sorted(list(set(self._value)))
+                other_values = sorted(list(set(other.get_value())))
                 if my_values != other_values:
-                    self._equalityfailreason = 'Set contents do not match'
+                    self._equalityfailreason = str(self._value) + \
+                                               ' value does not match ' + \
+                                               str(other.get_value())
                     return False
             else:
+                self._equalityfailreason = str(self._value) +\
+                                           ' value does not match ' +\
+                                           str(other.get_value())
                 return False
-
         if self._data_type != other.get_data_type():
             if self._data_type == 'string' and other.get_data_type() is None:
+                self._equalityfailreason = None
                 return True
 
             if self._data_type is None and other.get_data_type() == 'string':
+                self._equalityfailreason = None
                 return True
             self._equalityfailreason = 'data types differ'
             return False
+        self._equalityfailreason = None
         return True
 
     def get_equality_fail_reason(self):
@@ -148,6 +156,7 @@ class NetworkEdgeAttribute(Attribute):
         :return:
         """
         return self._equalityfailreason
+
 
 class NetworkNodeAttribute(Attribute):
     """
@@ -277,6 +286,7 @@ class NetworkNode(object):
             logger.debug('Removed ' + str(edge_cntr) +
                          ' edges linked to node: ' + str(self))
 
+        net_cx.remove_node(self._node_id)
         node_attrs = net_cx.get_node_attributes(self._node_id)
         if node_attrs is None:
             return
@@ -286,7 +296,6 @@ class NetworkNode(object):
         for name in attr_names:
             logger.debug('Removing node attribute: ' + str(name))
             net_cx.remove_node_attribute(self._node_id, name)
-        net_cx.remove_node(self._node_id)
         logger.debug('Removed node: ' + str(self))
 
     def __str__(self):
@@ -466,6 +475,7 @@ class NetworkEdge(object):
         :type net_cx: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
         :return:
         """
+        net_cx.remove_edge(self._edge_id)
         # remove edge attributes for deleted edge
         net_attrs = net_cx.get_edge_attributes(self._edge_id)
         if net_attrs is None:
@@ -480,7 +490,6 @@ class NetworkEdge(object):
                                          name)
         logger.debug('Removed ' + str(attr_cntr) +
                      ' edge attributes for ' + str(self))
-        net_cx.remove_edge(self._edge_id)
 
     def __str__(self):
         """
@@ -521,15 +530,17 @@ class NetworkNodeFactory(object):
             return None
 
         attributes = []
-        for n_attr in net_cx.get_node_attributes(node_id):
-            if 'd' in n_attr:
-                data_type = n_attr['d']
-            else:
-                data_type = None
-            n_annot = NetworkNodeAttribute(name=n_attr['n'],
-                                           value=n_attr['v'],
-                                           data_type=data_type)
-            attributes.append(n_annot)
+        node_attrs = net_cx.get_node_attributes(node_id)
+        if node_attrs is not None:
+            for n_attr in node_attrs:
+                if 'd' in n_attr:
+                    data_type = n_attr['d']
+                else:
+                    data_type = None
+                n_annot = NetworkNodeAttribute(name=n_attr['n'],
+                                               value=n_attr['v'],
+                                               data_type=data_type)
+                attributes.append(n_annot)
 
         if 'r' in node_obj:
             represents = node_obj['r']
@@ -568,15 +579,17 @@ class NetworkEdgeFactory(object):
             return None
 
         attributes = []
-        for e_attr in net_cx.get_edge_attributes(edge_id):
-            if 'd' in e_attr:
-                data_type = e_attr['d']
-            else:
-                data_type = None
-            e_annot = NetworkEdgeAttribute(name=e_attr['n'],
-                                           value=e_attr['v'],
-                                           data_type=data_type)
-            attributes.append(e_annot)
+        e_attrs = net_cx.get_edge_attributes(edge_id)
+        if e_attrs is not None:
+            for e_attr in e_attrs:
+                if 'd' in e_attr:
+                    data_type = e_attr['d']
+                else:
+                    data_type = None
+                e_annot = NetworkEdgeAttribute(name=e_attr['n'],
+                                               value=e_attr['v'],
+                                               data_type=data_type)
+                attributes.append(e_annot)
 
         if 'i' in edge_obj:
             interaction = edge_obj['i']

@@ -31,6 +31,8 @@ from ndexutil.config import NDExUtilConfig
 from ndexutil.cytoscape import Py4CytoscapeWrapper
 from ndexutil.cytoscape import DEFAULT_CYREST_API
 from ndexutil.ndex import NDExExtraUtils
+from ndexncipidloader.network import NetworkEdgeFactory
+from ndexncipidloader.network import NetworkNodeFactory
 import ndexncipidloader
 
 logger = logging.getLogger(__name__)
@@ -63,7 +65,7 @@ CONTROL_INTERACTIONS = ["controls-state-change-of",
                         "controls-expression-of"
                         ]
 
-COMMON_CHEMICALS = ["GDP","GTP", "ATP", "ADP", "calcium(2+)"]
+COMMON_CHEMICALS = ["GDP", "GTP", "ATP", "ADP", "calcium(2+)"]
 
 DEFAULT_FTP_HOST = 'ftp.ndexbio.org'
 DEFAULT_FTP_DIR = 'NCI_PID_BIOPAX_2016-06-08-PC2v8-API'
@@ -251,6 +253,9 @@ def _parse_arguments(desc, args):
                         help='If set, skips gene symbol checker that '
                              'examines all nodes of type protein '
                              'and verifies they are symbols')
+    parser.add_argument('--skipproteinfamilycleanup', action='store_true',
+                        help='If set, skip removal of nodes that are already'
+                             'members of protein families')
     parser.add_argument('--getfamilies', action='store_true',
                         help='If set, code examines owl files and generates '
                              'mapping of protein families')
@@ -326,10 +331,10 @@ class GeneFamilyFromOwlExtractor(object):
         """
         Constructor
         """
-        self._ns = { 'bp': 'http://www.biopax.org/release/biopax-level3.owl#',
-                     'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
-                     'owl': 'http://www.w3.org/2002/07/owl#',
-                     'base': 'http://pathwaycommons.org/pc2/'}
+        self._ns = {'bp': 'http://www.biopax.org/release/biopax-level3.owl#',
+                    'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
+                    'owl': 'http://www.w3.org/2002/07/owl#',
+                    'base': 'http://pathwaycommons.org/pc2/'}
         self._bclient = bclient
 
     def _get_members_of_protein(self, proteinref):
@@ -1589,26 +1594,31 @@ class ProteinFamilyNodeMemberRemover(NetworkUpdator):
         """
         Iterates through all nodes in network and removes nodes that
         are listed as members of protein family nodes. Any non
-        matching nodes are shifted to the protein family node.
+        matching edges are shifted to the protein family node.
 
         :param network: network to update
         :type network: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
         :return: list of issues as strings encountered
         :rtype: list
         """
+        net_edge_fac = NetworkEdgeFactory()
+        net_node_fac = NetworkNodeFactory()
         issues = []
         node_name_to_id = None
         nodes_to_remove = set()
-        for node_id, node_obj in network.get_nodes():
-            family_members, sub_issues = self._get_members_of_family_node(network, node_id)
+        for family_node_id, family_node_obj in network.get_nodes():
+            family_members,\
+            sub_issues = self._get_members_of_family_node(network, family_node_id)
             if sub_issues is not None and len(sub_issues) > 0:
                 issues.extend(sub_issues)
             if len(family_members) == 0:
                 continue
 
-            # family_members has some node names, now we have to do checking
-            # and removal
-            family_edge_dict = self._get_all_edges_connected_to_node(network, node_id)
+            # get all edges connected to family node
+            family_node_edges = net_edge_fac.\
+                get_all_edges_connected_to_node(net_cx=network,
+                                                node_id=family_node_id)
+
             # create node name to id dict if we have not already
             if node_name_to_id is None:
                 node_name_to_id = self._get_node_name_to_id_dict(network)
@@ -1619,60 +1629,42 @@ class ProteinFamilyNodeMemberRemover(NetworkUpdator):
                 logger.debug(member + ' member exists as node')
                 # so this member has a regular node in the network
                 # need to check edges
-
-                e_dict = self._get_all_edges_connected_to_node(network,
-                                                               node_name_to_id[member])
-                edges_covered = True
-                for key in e_dict.keys():
-                    res = self._get_all_edge_attributes_as_dict(network, e_dict[key])
-                    matching_edges = []
-                    for fkey in family_edge_dict.keys():
-
-                        fres = self._get_all_edge_attributes_as_dict(network, family_edge_dict[fkey])
-                        if fres['__edge_obj']['s'] == res['__edge_obj']['s'] or\
-                            fres['__edge_obj']['t'] == res['__edge_obj']['t'] or \
-                            fres['__edge_obj']['s'] == res['__edge_obj']['t'] or \
-                            fres['__edge_obj']['t'] == res['__edge_obj']['s']:
-                            # this edge on family node links to
-                            # to same node as res
-                            matching_edges.append(fres)
-
-                    edges_match, more_issues = self._are_edge_attribute_dicts_same(res,
-                                                                                   matching_edges)
-                    if len(more_issues) > 0:
-                        issues.extend(more_issues)
+                all_member_edges = net_edge_fac.\
+                    get_all_edges_connected_to_node(net_cx=network,
+                                                    node_id=node_name_to_id[member])
+                for member_edge in all_member_edges:
+                    edges_match, sub_issues = self._adjudicate_edges(member_edge,
+                                                                     family_node_edges)
                     if edges_match is False:
-                        edges_covered = False
+                        # need to move edge over
 
-                if edges_covered is False:
-                    issues.append('Not removing node: ' + str(member) + ' cause it has some unique edges')
-                    issues.append('e_dict: ' + str(e_dict))
-                    issues.append('family_edge_dict' + str(family_edge_dict))
-                else:
-                    nodes_to_remove.add((member, node_name_to_id[member]))
+                        if member_edge.get_source_node_id() == node_name_to_id[member]:
+                            new_source_id = family_node_id
+                            new_target_id = member_edge.get_target_node_id()
+                        if member_edge.get_target_node_id() == node_name_to_id[member]:
+                            new_target_id = family_node_id
+                            new_source_id = member_edge.get_source_node_id()
+                        issues.append('For node ' + str(member) +
+                                      ' moving unique edge ' + str(member_edge) +
+                                      ' to family node ' + str(family_node_obj['n']))
+                        member_edge.add_edge_to_network(net_cx=network, source_node_id=new_source_id,
+                                                        target_node_id=new_target_id)
+                    issues.extend(sub_issues)
+                nodes_to_remove.add(node_name_to_id[member])
+                issues.append(str(member) + ' node removed since it is part of ' +
+                              str(family_node_obj['n']))
 
-        for node_tuple in nodes_to_remove:
-            logger.debug('Removing node ' + node_tuple[0] + ' (' +
-                         str(node_tuple[1]) + ') since it is a ' +
-                         'member of a protein family')
-            self._remove_node(network, node_tuple[1])
-            self._remove_node_edges(network, node_tuple[1])
+        for node_id in nodes_to_remove:
+            mem_node = net_node_fac.get_network_node_from_network(net_cx=network,
+                                                                  node_id=node_id)
+            mem_node.remove_node_from_network(net_cx=network)
         return issues
 
-    def _are_edge_attribute_dicts_same(self, edge_one, edge_two_list):
+    def _adjudicate_edges(self, edge_one, edge_two_list):
         """
-        Compares two :py:func:`dict` objects containing edge attributes in the
-        following format:
+        Compares edge_one with edges in **edge_two_list**
 
-        .. code-block::
-
-            {
-              '__edge_obj': {'@id': <EDGE_ID>, 's': <SOURCE_NODE_ID, 't': TARGET_NODE_ID, 'i': ''},
-              ATTRIBUTE_NAME: {'po': <EDGE ID>, 'n': ATTRIBUTE_NAME, 'v': '', 'd': ''},
-            }
-
-        The edges are the same of they share the same `i` value in `__edge_obj` and
-        have the same attributes ignoring the value of `po`
+        The edges are the same of they have the same interaction and annotation
 
         :param edge_one:
         :type edge_one: dict
@@ -1683,89 +1675,40 @@ class ProteinFamilyNodeMemberRemover(NetworkUpdator):
         """
         issues = []
         edges_match = True
-        edge_two = self._get_edge_with_matching_interaction(edge_one, edge_two_list)
+        e_two_interactions = set()
+        edge_two = None
+        for other_edge in edge_two_list:
+            e_two_interactions.add(other_edge.get_interaction())
+            if edge_one.get_interaction() == other_edge.get_interaction():
+                edge_two = other_edge
+                break
 
         if edge_two is None:
             edges_match = False
-            issues.append('None of edges match interaction ' + edge_one['__edge_obj']['i'])
+            issues.append('None of edges (' + str(e_two_interactions) +
+                          ') match interaction: ' +
+                          edge_one.get_interaction())
             return edges_match, issues
 
-        if len(edge_one.keys()) != len(edge_two.keys()):
+        if len(edge_one.get_attributes()) != len(edge_two.get_attributes()):
             edges_match = False
             issues.append('Number of attributes varies between edges: ' +
-                          str(edge_one.keys()) +
-                          ' vs ' + str(edge_two.keys()))
-        for key in edge_one.keys():
-            if key not in edge_two:
-                edges_match = False
-                issues.append(key + ' attribute in edge one not in edge two')
+                          str(len(edge_one.get_attributes())) + ' vs ' +
+                          str(len(edge_two.get_attributes())))
+            return edges_match, issues
 
-        for key in edge_two.keys():
-            if key not in edge_one:
-                edges_match = False
-                issues.append(key + ' attribute in edge two not in edge one')
+        for edge_one_attr in edge_one.get_attributes():
+            attrib_matches = False
+            for edge_two_attr in edge_two.get_attributes():
+                if edge_one_attr == edge_two_attr:
+                    attrib_matches = True
+                    break
 
-        for key in edge_one.keys():
-            if key == '__edge_obj':
-                continue
-            if key not in edge_two:
-                continue
-            if edge_one[key]['v'] != edge_two[key]['v']:
+            if attrib_matches is False:
+                issues.append('No match for: ' + str(edge_one_attr))
                 edges_match = False
-                issues.append(key + ' attribute values differ: ' +
-                              str(edge_one[key]['v']) + ' vs ' +
-                              str(edge_two[key]['v']))
 
         return edges_match, issues
-
-    def _get_edge_with_matching_interaction(self, edge_one, edge_two_list):
-        """
-
-        :param edge_one:
-        :param edge_two_list:
-        :return:
-        """
-        for edge_two in edge_two_list:
-            if edge_one['__edge_obj']['i'] == edge_two['__edge_obj']['i']:
-                return edge_two
-        return None
-
-    def _get_all_edges_connected_to_node(self, network, node_id):
-        """
-        Gets all edges connected to node could be source or target
-
-        :param network: network to examine
-        :type network: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
-        :param node_id:
-        :type node_id: int
-        :return: edge ids
-        :rtype: dict
-        """
-        edge_dict = {}
-        for edge_id, edge_obj in network.get_edges():
-            if edge_obj['s'] == node_id:
-                edge_dict[edge_id] = edge_obj
-                continue
-            if edge_obj['t'] == node_id:
-                edge_dict[edge_id] = edge_obj
-
-        return edge_dict
-
-    def _get_all_edge_attributes_as_dict(self, network, edge_obj):
-        """
-        Gets all edge attributes as a dict
-
-        :param network:
-        :type network: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
-        :param edge_id:
-        :type edge_id: int
-        :return:
-        :rtype: dict
-        """
-        e_attr_dict = {'__edge_obj': edge_obj}
-        for e_attr in network.get_edge_attributes(edge_obj['@id']):
-            e_attr_dict[e_attr['n']] = network.get_edge_attribute(edge_obj['@id'], e_attr['n'])
-        return e_attr_dict
 
     def _get_node_name_to_id_dict(self, network):
         """
@@ -1813,56 +1756,6 @@ class ProteinFamilyNodeMemberRemover(NetworkUpdator):
                 name_only = entry
             node_names.append(name_only)
         return node_names, issues
-
-    def _remove_edge(self, network, edge_id):
-        """
-        Removes edge attributes and its edge
-        :param net_cx:
-        :param edge_id:
-        :return:
-        """
-        e_attr_names = set()
-        for edge_attr in network.get_edge_attributes(edge_id):
-            e_attr_names.add(edge_attr['n'])
-        for e_attr in e_attr_names:
-            network.remove_edge_attribute(edge_id, e_attr)
-        network.remove_edge(edge_id)
-
-    def _remove_node(self, network, nodeid):
-        """
-        Removes node and its attributes.
-        This implementation currently digs into
-        internals of :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
-        which is bad if that ever ends up
-        changing.
-
-        :param network: network with nodes
-        :type network: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
-        :param nodeid:
-        :type nodeid: int
-        :return: None
-        """
-        n_attr_names = set()
-        for node_attr in network.get_node_attributes(nodeid):
-            n_attr_names.add(node_attr['n'])
-        for n_attr in n_attr_names:
-            network.remove_node_attribute(nodeid, n_attr)
-        network.remove_node(nodeid)
-
-    def _remove_node_edges(self, network, node_id):
-        edges_to_remove = set()
-
-        for edge_id, edge in network.get_edges():
-            source_nodeid = edge["s"]
-            if source_nodeid == node_id:
-                edges_to_remove.add(edge_id)
-                continue
-            target_node_id = edge["t"]
-            if target_node_id == node_id:
-                edges_to_remove.add(edge_id)
-
-        for edge_id in edges_to_remove:
-            self._remove_edge(network, edge_id)
 
 
 class NDExNciPidLoader(object):
@@ -2810,8 +2703,10 @@ def main(args):
                     CHEBINodeRepresentsPrefixRemover(),
                     GeneSymbolNodeNameUpdator(theargs.genesymbol),
                     NodeAttributeRemover('PARTICIPANT_NAME'),
-                    GeneFamilyExpander(theargs.genesymbol),
-                    ProteinFamilyNodeMemberRemover()]
+                    GeneFamilyExpander(theargs.genesymbol)]
+
+        if theargs.skipproteinfamilycleanup is False:
+            updators.append(ProteinFamilyNodeMemberRemover())
 
         if theargs.skipchecker is False:
             updators.append(GeneSymbolChecker(searcher=searcher))

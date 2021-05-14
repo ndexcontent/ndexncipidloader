@@ -17,8 +17,8 @@ with open('README.rst') as readme_file:
 with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
-requirements = ['ndex2',
-                'ndexutil',
+requirements = ['ndex2>=3.4.0,<4.0.0',
+                'ndexutil>=0.13.0,<1.0.0',
                 'biothings_client',
                 'ftpretty',
                 'requests',

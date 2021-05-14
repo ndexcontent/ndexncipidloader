@@ -1627,88 +1627,112 @@ class ProteinFamilyNodeMemberRemover(NetworkUpdator):
                 if member not in node_name_to_id:
                     continue
                 logger.debug(member + ' member exists as node')
+
+                mem_node_id = node_name_to_id[member]
                 # so this member has a regular node in the network
                 # need to check edges
                 all_member_edges = net_edge_fac.\
                     get_all_edges_connected_to_node(net_cx=network,
-                                                    node_id=node_name_to_id[member])
+                                                    node_id=mem_node_id)
                 for member_edge in all_member_edges:
-                    edges_match, sub_issues = self._adjudicate_edges(member_edge,
-                                                                     family_node_edges)
-                    if edges_match is False:
-                        # need to move edge over
+                    # need to move edge over
+                    # determine source and target node id by replacing the
+                    # edge id to the member node which could be a source
+                    # or target
+                    mem_node_id = node_name_to_id[member]
+                    if member_edge.get_source_node_id() == mem_node_id:
+                        new_source_id = family_node_id
+                        new_target_id = member_edge.get_target_node_id()
+                    if member_edge.get_target_node_id() == mem_node_id:
+                        new_target_id = family_node_id
+                        new_source_id = member_edge.get_source_node_id()
 
-                        if member_edge.get_source_node_id() == node_name_to_id[member]:
-                            new_source_id = family_node_id
-                            new_target_id = member_edge.get_target_node_id()
-                        if member_edge.get_target_node_id() == node_name_to_id[member]:
-                            new_target_id = family_node_id
-                            new_source_id = member_edge.get_source_node_id()
-                        issues.append('For node ' + str(member) +
-                                      ' moving unique edge ' + str(member_edge) +
-                                      ' to family node ' + str(family_node_obj['n']))
-                        member_edge.add_edge_to_network(net_cx=network, source_node_id=new_source_id,
-                                                        target_node_id=new_target_id)
-                    issues.extend(sub_issues)
+                    # move the edge and its attributes over to the family node
+                    member_edge.\
+                        add_edge_to_network(net_cx=network,
+                                            source_node_id=new_source_id,
+                                            target_node_id=new_target_id)
+
+                # get all edges connected to family
+                updated_family_edges = net_edge_fac.\
+                    get_all_edges_connected_to_node(net_cx=network,
+                                                    node_id=family_node_id)
+
+                # take all the family edges and merge them into a
+                # new list of edges
+                new_edges = self.\
+                    _get_merged_edges(updated_family_edges)
+
+                # remove old family edges
+                for old_fedge in updated_family_edges:
+                    old_fedge.remove_edge_from_network(net_cx=network)
+
+                # add new family edges
+                for new_edge in new_edges:
+                    new_edge.add_edge_to_network(net_cx=network)
+
                 nodes_to_remove.add(node_name_to_id[member])
-                issues.append(str(member) + ' node removed since it is part of ' +
+                issues.append(str(member) +
+                              ' node removed since it is part of ' +
                               str(family_node_obj['n']))
 
+        # remove all the member nodes that are in families
         for node_id in nodes_to_remove:
-            mem_node = net_node_fac.get_network_node_from_network(net_cx=network,
-                                                                  node_id=node_id)
+            mem_node = net_node_fac.\
+                get_network_node_from_network(net_cx=network,
+                                              node_id=node_id)
             mem_node.remove_node_from_network(net_cx=network)
+
         return issues
 
-    def _adjudicate_edges(self, edge_one, edge_two_list):
+    def _get_merged_edges(self, edges):
         """
-        Compares edge_one with edges in **edge_two_list**
+        Examines list of **edges** passed in and creates a new list of edges
+        merging any edges with same source, target, interaction, and same
+        directed attribute value.
+        Any common attributes are converted into list elements if they differ
 
-        The edges are the same of they have the same interaction and annotation
-
-        :param edge_one:
-        :type edge_one: dict
-        :param edge_two_list: list of dict objects
-        :type edge_two_list: list
-        :return: (True if match, False otherwise, [list of issues encountered if False])
-        :rtype: tuple
+        :param edges: list of :py:class:`~ndexncipidloader.network.NetworkEdge` objects
+        :type edges: list
+        :return:
         """
-        issues = []
-        edges_match = True
-        e_two_interactions = set()
-        edge_two = None
-        for other_edge in edge_two_list:
-            e_two_interactions.add(other_edge.get_interaction())
-            if edge_one.get_interaction() == other_edge.get_interaction():
-                edge_two = other_edge
-                break
+        edge_dict = {}
 
-        if edge_two is None:
-            edges_match = False
-            issues.append('None of edges (' + str(e_two_interactions) +
-                          ') match interaction: ' +
-                          edge_one.get_interaction())
-            return edges_match, issues
+        for edge in edges:
+            d_val = None
+            if edge.get_attributes() is not None:
+                for attrib in edge.get_attributes():
+                    if attrib.get_name() == 'directed':
+                        d_val = attrib.get_value()
+            e_key = 's=' + str(edge.get_source_node_id()) + ', t=' +\
+                    str(edge.get_target_node_id()) + ', i=' +\
+                    edge.get_interaction() +\
+                    ', directed=' + str(d_val)
+            if e_key not in edge_dict:
+                edge_dict[e_key] = []
+            edge_dict[e_key].append(edge)
 
-        if len(edge_one.get_attributes()) != len(edge_two.get_attributes()):
-            edges_match = False
-            issues.append('Number of attributes varies between edges: ' +
-                          str(len(edge_one.get_attributes())) + ' vs ' +
-                          str(len(edge_two.get_attributes())))
-            return edges_match, issues
+        # okay edge_dict has edges with same source target and interaction
+        # if values are single, its easy fix add to new list
+        # if there are multiple then call
+        # the merge edge function and add the resulting merged edge
+        new_edges = []
+        merged_edges = []
+        for key in edge_dict.keys():
+            if len(edge_dict[key]) == 1:
+                new_edges.append(edge_dict[key][0])
+                continue
 
-        for edge_one_attr in edge_one.get_attributes():
-            attrib_matches = False
-            for edge_two_attr in edge_two.get_attributes():
-                if edge_one_attr == edge_two_attr:
-                    attrib_matches = True
-                    break
-
-            if attrib_matches is False:
-                issues.append('No match for: ' + str(edge_one_attr))
-                edges_match = False
-
-        return edges_match, issues
+            base_edge = edge_dict[key][0]
+            for sub_edge in edge_dict[key][1:]:
+                if logger.isEnabledFor(logging.DEBUG):
+                    merged_edges.append(str(sub_edge))
+                base_edge.merge_edge(sub_edge)
+            new_edges.append(base_edge)
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(str(merged_edges) +
+                             ' merged into: ' + str(base_edge))
+        return new_edges
 
     def _get_node_name_to_id_dict(self, network):
         """

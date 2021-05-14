@@ -80,7 +80,7 @@ following these conventions:
 * Node attribute named **member** is added and set to list of genes found in lookup in `gene_symbol_mapping.json`_
 * Node attribute named **type** is changed to **proteinfamily**
 
-**11\)** `Changed in 4.0.1`. For each network all **proteinfamily** nodes are examined and if any **members** exist
+**11\)** `Changed in 5.0.0`. For each network all **proteinfamily** nodes are examined and if any **members** exist
          as separate nodes, those nodes are removed and their edges are shifted to the corresponding **proteinfamily**
          node. Duplicate edges are removed and other edges are merged if **interaction** and **directed** values are the
          same. In the case of a merge **citation** field values are merged into a new unique list.

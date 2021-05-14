@@ -2,10 +2,10 @@
 History
 =======
 
-4.0.1 (2021-05-14)
+5.0.0 (2021-05-14)
 -----------------------
 
-* Fixed duplicate node issue by removing nodes and edges if a family node, contains
+* Fixed duplicate node issue by removing nodes and edges from a network if a family node, contains
   the node in its `memberlist`. Any edges are shifted to the family node with duplicates
   merged where possible.
 

@@ -17,6 +17,7 @@ class Attribute(object):
         self._name = name
         self._value = value
         self._data_type = data_type
+        self._equalityfailreason = None
 
     def get_name(self):
         """
@@ -69,48 +70,11 @@ class Attribute(object):
         """
         self._data_type = data_type
 
-
-class NetworkEdgeAttribute(Attribute):
-    """
-    Object that represents an edge annotation
-    """
-    def __init__(self, name=None, value=None, data_type=None):
-        """
-        Constructor
-        """
-        super(NetworkEdgeAttribute, self).__init__(name=name,
-                                                   value=value,
-                                                   data_type=data_type)
-        self._equalityfailreason = None
-
-    def add_attribute_to_edge(self, net_cx=None, edge_id=None):
-        """
-        Adds this edge attribute
-
-        :param net_cx: network to add edge attribute to
-        :type net_cx: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
-        :param edge_id: id of edge on **net_cx** network
-        :type edge_id: int
-        :return:
-        """
-        net_cx.set_edge_attribute(edge_id, self._name,
-                                  self._value,
-                                  type=self._data_type)
-
-    def __str__(self):
-        """
-        Returns str representation of object
-        :return:
-        """
-        return 'name=' + str(self._name) + ', values=' +\
-               str(self._value) + ', type=' +\
-               str(self._data_type)
-
     def __eq__(self, other):
         """
         Compares self with **other** for equality
         :param other:
-        :type other: :py:class:`NetworkEdgeAttribute`
+        :type other: :py:class:`Attribute`
         :return: True if match False otherwise
         """
         if other is None:
@@ -150,6 +114,15 @@ class NetworkEdgeAttribute(Attribute):
         self._equalityfailreason = None
         return True
 
+    def __str__(self):
+        """
+        Returns str representation of object
+        :return:
+        """
+        return 'name=' + str(self._name) + ', values=' +\
+               str(self._value) + ', type=' +\
+               str(self._data_type)
+
     def get_equality_fail_reason(self):
         """
 
@@ -157,27 +130,28 @@ class NetworkEdgeAttribute(Attribute):
         """
         return self._equalityfailreason
 
+    def add_attribute_to_edge(self, net_cx=None, edge_id=None):
+        """
+        Adds this edge attribute
 
-class NetworkNodeAttribute(Attribute):
-    """
-    Object that represents an node annotation
-    """
-    def __init__(self, name=None, value=None, data_type=None):
+        :param net_cx: Network to add edge attribute to
+        :type net_cx: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
+        :param edge_id: Id of edge on **net_cx** network
+        :type edge_id: int
+        :return:
         """
-        Constructor
-        """
-        super(NetworkNodeAttribute, self).__init__(name=name,
-                                                   value=value,
-                                                   data_type=data_type)
+        net_cx.set_edge_attribute(edge_id, self._name,
+                                  self._value,
+                                  type=self._data_type)
 
     def add_attribute_to_node(self, net_cx=None, node_id=None):
         """
         Adds this node attribute
 
-        :param net_cx: network to add edge attribute to
+        :param net_cx: Network to add node attribute to
         :type net_cx: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
-        :param edge_id: id of edge on **net_cx** network
-        :type edge_id: int
+        :param node_id: Id of node on **net_cx** network
+        :type node_id: int
         :return:
         """
         net_cx.set_node_attribute(node_id, self._name,
@@ -311,7 +285,8 @@ class NetworkNode(object):
 
 class NetworkEdge(object):
     """
-    Object that represents an edge
+    Object that represents an edge in a Network
+
     """
     def __init__(self, edge_id=None, source_node_id=None,
                  source_node_name=None,
@@ -320,6 +295,21 @@ class NetworkEdge(object):
                  attributes=None):
         """
         Constructor
+
+        :param edge_id: Id of edge
+        :type edge_id: int
+        :param source_node_id: Id of source node
+        :type source_node_id: int
+        :param source_node_name: Name of source node
+        :type source_node_name: str
+        :param target_node_id: Id of target node
+        :type target_node_id: int
+        :param target_node_name: Name of target node
+        :type target_node_name: str
+        :param interaction: Interaction for edge
+        :type interaction: str
+        :param attributes: Edge :py:class:`Attribute`
+        :type attributes: list
         """
         self._edge_id = edge_id
         self._source_node_id = source_node_id
@@ -333,7 +323,7 @@ class NetworkEdge(object):
         """
         Gets id of edge
 
-        :return:
+        :return: Id of edge
         :rtype: int
         """
         return self._edge_id
@@ -342,8 +332,8 @@ class NetworkEdge(object):
         """
         Sets edge id
 
-        :param edge_id:
-        :return:
+        :param edge_id: Id of edge
+        :type edge_id: int
         """
         self._edge_id = edge_id
 
@@ -351,7 +341,7 @@ class NetworkEdge(object):
         """
         Gets source node id
 
-        :return:
+        :return: Id of source node
         :rtype: int
         """
         return self._source_node_id
@@ -360,8 +350,8 @@ class NetworkEdge(object):
         """
         Sets source node id
 
-        :param source_node_id:
-        :return: None
+        :param source_node_id: Id of source node
+        :type source_node_id: int
         """
         self._source_node_id = source_node_id
 
@@ -369,7 +359,7 @@ class NetworkEdge(object):
         """
         Gets target node id
 
-        :return: target node id
+        :return: Id of target node id
         :rtype: int
         """
         return self._target_node_id
@@ -378,8 +368,8 @@ class NetworkEdge(object):
         """
         Sets target node id
 
-        :param target_node_id:
-        :return: None
+        :param target_node_id: Id of target node
+        :type target_node_id: int
         """
         self._target_node_id = target_node_id
 
@@ -387,16 +377,17 @@ class NetworkEdge(object):
         """
         Gets source node name
 
-        :return:
+        :return: Name of source node
+        :rtype: str
         """
         return self._source_node_name
 
     def set_source_node_name(self, node_name):
         """
         Sets source node name
-        :param node_name:
+
+        :param node_name: Name of source node
         :type node_name: str
-        :return:
         """
         self._source_node_name = node_name
 
@@ -404,23 +395,26 @@ class NetworkEdge(object):
         """
         Gets target node name
 
-        :return:
+        :return: Target node name
+        :rtype: str
         """
         return self._target_node_name
 
     def set_target_node_name(self, node_name):
         """
         Sets target node name
-        :param node_name:
+
+        :param node_name: Target node name
         :type node_name: str
-        :return:
         """
         self._target_node_name = node_name
 
     def get_interaction(self):
         """
         Gets interaction
-        :return:
+
+        :return: Interaction
+        :rtype: str
         """
         return self._interaction
 
@@ -428,8 +422,8 @@ class NetworkEdge(object):
         """
         Sets interaction
 
-        :param interaction:
-        :return:
+        :param interaction: Interaction
+        :type interaction: str
         """
         self._interaction = interaction
 
@@ -437,43 +431,64 @@ class NetworkEdge(object):
         """
         Gets edge annotations
 
-        :return: :py:class:`NetworkEdgeAttribute` as a list
+        :return: :py:class:`Attribute` as a list
         :rtype: list
         """
         return self._attributes
 
     def set_attributes(self, attributes):
         """
-        Sets edge annotations
-        :param attributes: list of :py:class:`NetworkEdgeAttribute`
+        Sets edge attributes, replacing any existing
+        attributes
+
+        :param attributes: list of :py:class:`Attribute`
         :type attributes: list
-        :return:
         """
         self._attributes = attributes
 
     def add_edge_to_network(self, net_cx=None, source_node_id=None,
                             target_node_id=None):
         """
-        Adds this edge and its annotations to network
-        :param net_cx:
+        Adds this edge and its attributes to network **net_cx** ignoring
+        the source and target node values in this object and using
+        the ones passed in.
+
+        :param net_cx: Network to modify
         :type net_cx: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
-        :return:
+        :param source_node_id: Id of source node to use for edge. To use
+                               source node id of this object leave as
+                               default of `None`
+        :type source_node_id: int
+        :param target_node_id: Id of target node to use for edge. To use
+                               target node id of this object leave as
+                               default of `None`
+        :return: Id of new edge
+        :rtype: int
         """
-        new_edge_id = net_cx.create_edge(edge_source=source_node_id,
-                                         edge_target=target_node_id,
+        if source_node_id is None:
+            src_node = self._source_node_id
+        else:
+            src_node = source_node_id
+        if target_node_id is None:
+            target_node = self._target_node_id
+        else:
+            target_node = target_node_id
+        new_edge_id = net_cx.create_edge(edge_source=src_node,
+                                         edge_target=target_node,
                                          edge_interaction=self._interaction)
         if self._attributes is not None:
             for annot in self._attributes:
-                annot.add_attribute_to_edge(net_cx=net_cx, edge_id=new_edge_id)
+                annot.add_attribute_to_edge(net_cx=net_cx,
+                                            edge_id=new_edge_id)
         return new_edge_id
 
     def remove_edge_from_network(self, net_cx=None):
         """
-        Removes this edge from network passed in
+        Removes this edge from **net_cx** network passed in. Any
+        attributes connected with this edge are also removed.
 
-        :param net_cx:
+        :param net_cx: Network to modify
         :type net_cx: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
-        :return:
         """
         net_cx.remove_edge(self._edge_id)
         # remove edge attributes for deleted edge
@@ -493,8 +508,17 @@ class NetworkEdge(object):
 
     def __str__(self):
         """
-        Gets string representation
-        :return:
+        Gets string representation of edge in this format
+
+        .. code-block:: python
+
+            po=<EDGE ID>, s=<SRC NODE ID> (<SRC NODE NAME>),\
+             t=<TARGET NODE ID> (<TARGET NODE NAME>),\
+             i=<INTERACTION>
+
+        :return: String representation of edge ``None`` values will
+                 be printed as ``None``
+        :rtype: str
         """
         return 'po=' + str(self._edge_id) + ', s=' +\
                str(self._source_node_id) + ' (' +\
@@ -502,6 +526,188 @@ class NetworkEdge(object):
                str(self._target_node_id) + ' (' +\
                str(self._target_node_name) + '), i=' +\
                str(self._interaction)
+
+    def merge_edge(self, other_edge):
+        """
+        Merges edge with this one. source, target, interaction is ignored
+        and attributes are combined with duplicates removed. In case of
+        attributes with matching names and different values those values
+        are switched to a list of matching type and if types differ
+        then list_of_string is used
+
+        :param other_edge:
+        :return:
+        """
+        if other_edge is None:
+            return
+
+        if other_edge.get_attributes() is None:
+            return
+        if self._attributes is None:
+            self._attributes = []
+        self._attributes.extend(other_edge.get_attributes())
+
+        self.remove_identical_attributes()
+        self.merge_duplicate_attributes()
+
+    def merge_duplicate_attributes(self):
+        """
+
+        :return:
+        """
+        if self._attributes is None:
+            return
+
+        # build dict of lists with matching attribute names
+        attrs_dict = {}
+        for me_attr in self._attributes:
+            if me_attr.get_name() not in attrs_dict:
+                attrs_dict[me_attr.get_name()] = []
+            attrs_dict[me_attr.get_name()].append(me_attr)
+
+        new_attrs = []
+        for key in attrs_dict.keys():
+            # simple case only 1 attribute with name
+            if len(attrs_dict[key]) == 1:
+                new_attrs.append(attrs_dict[key][0])
+                continue
+            new_attrs.append(self._merge_attributes(attrs_dict[key]))
+        self._attributes = new_attrs
+
+    def _get_data_type_for_attributes(self, attrs_list):
+        """
+        Given a list of :py:class:`Attribute` objects examine
+        the data types and return a data type based on these
+        rules:
+
+
+        If data types are same <type> or list_of_<type>
+        just return list_of_<type>
+
+        If data types are different but one is list_of_<type> and
+        other is <type> then return list_of_<type>
+
+        All other cases return list_of_string
+
+        :param attrs_list:
+        :return:
+        """
+        d_type_set = set()
+        # build set of data types
+        for attr in attrs_list:
+            d_type_set.add(attr.get_data_type())
+
+        # easier case only 1 data type
+        if len(d_type_set) == 1:
+            d_type = d_type_set.pop()
+
+            # if string or None list_of_string
+            if d_type is None or d_type == 'string':
+                return 'list_of_string'
+
+            # if <type> just return list_of_<type>
+            if not d_type.startswith('list_of'):
+                return 'list_of_' + d_type
+            # already was set to list, leave it
+            return d_type
+
+        # harder case 2 data types
+        if len(d_type_set) == 2:
+            d_type_one = d_type_set.pop()
+            d_type_two = d_type_set.pop()
+
+            # check if data types are <type> and list_of_<type>
+            # if so return list_of_<type>
+            if d_type_one is not None and d_type_one.startswith('list_of_'):
+                if d_type_two is not None and d_type_one.endswith(d_type_two):
+                    return d_type_one
+            if d_type_two is not None and d_type_two.startswith('list_of_'):
+                if d_type_one is not None and d_type_two.endswith(d_type_one):
+                    return d_type_two
+
+        # failure case if none of the above worked
+        # just go with list_of_string
+        return 'list_of_string'
+
+    def _merge_attributes(self, attrs_list):
+        """
+        Takes list of :py:class:`Attribute` objects and merges
+        them following these rules.
+
+        If data types are the same they are added to a set and that
+        set is converted to a list and set as value for this attribute
+
+        If data types differ, then all values are added as str and
+        put in a set. This set is converted to a list and set
+        as value for this attribute. The data type is then set
+        to 'list_of_string'
+
+        .. note::
+
+            Attribute name is taken from 1st :py:class:`Attribute` in list
+
+        :param attrs_list: list with more than 1 :py:class:`Attribute` objects
+        :type attrs_list: list
+        :return: Merged edge attribute
+        :rtype: :py:class:`Attribute`
+        """
+        d_type = self._get_data_type_for_attributes(attrs_list)
+
+        name = attrs_list[0].get_name()
+        attr_value_set = set()
+        for attr in attrs_list:
+            if isinstance(attr.get_value(), list):
+                for el in attr.get_value():
+                    if d_type == 'list_of_string':
+                        attr_value_set.add(str(el))
+                    else:
+                        attr_value_set.add(el)
+            else:
+                if d_type == 'list_of_string':
+                    attr_value_set.add(str(attr.get_value()))
+                else:
+                    attr_value_set.add(attr.get_value())
+        return Attribute(name=name,
+                         value=list(attr_value_set),
+                         data_type=d_type)
+
+    def remove_identical_attributes(self):
+        """
+        Examines attributes contained within and
+        keeps only one of duplicates.
+
+        .. note::
+
+            This method recreates the attributes list within
+
+        :return: list of :py:class:`Attribute` objects that were
+                 duplicates and removed
+        :rtype list:
+        """
+        merges = []
+        if self._attributes is None:
+            return merges
+
+        if len(self._attributes) <= 1:
+            return []
+
+        new_attrs = []
+        me_attr = self._attributes.pop()
+        while me_attr is not None:
+            found_match = False
+            for other_attr in self._attributes:
+                if me_attr == other_attr:
+                    merges.append(me_attr)
+                    found_match = True
+                    break
+            if found_match is False:
+                new_attrs.append(me_attr)
+            if len(self._attributes) == 0:
+                break
+            me_attr = self._attributes.pop()
+
+        self._attributes = new_attrs
+        return merges
 
 
 class NetworkNodeFactory(object):
@@ -537,9 +743,9 @@ class NetworkNodeFactory(object):
                     data_type = n_attr['d']
                 else:
                     data_type = None
-                n_annot = NetworkNodeAttribute(name=n_attr['n'],
-                                               value=n_attr['v'],
-                                               data_type=data_type)
+                n_annot = Attribute(name=n_attr['n'],
+                                    value=n_attr['v'],
+                                    data_type=data_type)
                 attributes.append(n_annot)
 
         if 'r' in node_obj:
@@ -586,9 +792,9 @@ class NetworkEdgeFactory(object):
                     data_type = e_attr['d']
                 else:
                     data_type = None
-                e_annot = NetworkEdgeAttribute(name=e_attr['n'],
-                                               value=e_attr['v'],
-                                               data_type=data_type)
+                e_annot = Attribute(name=e_attr['n'],
+                                    value=e_attr['v'],
+                                    data_type=data_type)
                 attributes.append(e_annot)
 
         if 'i' in edge_obj:
@@ -605,18 +811,29 @@ class NetworkEdgeFactory(object):
                              attributes=attributes)
         return n_edge
 
-    def get_all_edges_connected_to_node(self, net_cx=None, node_id=None):
+    def get_all_edges_connected_to_node(self, net_cx=None, node_id=None,
+                                        interaction=None):
         """
         Gets all edges connected to node
-        :param net_cx:
-        :param node_id:
-        :return:
+        :param net_cx: Network to get edges from
+        :type net_cx: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
+        :param node_id: Id of node
+        :type node_id: int
+        :param interaction: If set only include edges whose interaction matches
+                            this value. Leaving as ``None`` will include all edges.
+        :type interaction: str
+        :return: List of :py:class:`NetworkEdge` objects connected to to **node_id**
+        :rtype: list
         """
         edge_list = []
         for edge_id, edge_obj in net_cx.get_edges():
             if edge_obj['s'] == node_id or edge_obj['t'] == node_id:
-                net_edge = self.get_network_edge_from_network(net_cx=net_cx,
-                                                              edge_id=edge_id)
-                edge_list.append(net_edge)
+                if interaction is None or edge_obj['i'] == interaction:
+                    net_edge = self.get_network_edge_from_network(net_cx=net_cx,
+                                                                  edge_id=edge_id)
+                    edge_list.append(net_edge)
         return edge_list
+
+
+
 

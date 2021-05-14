@@ -1685,6 +1685,76 @@ class ProteinFamilyNodeMemberRemover(NetworkUpdator):
 
         return issues
 
+    def _get_edge_key(self, edge, flip_src_target=False):
+        """
+        Gets edge key
+        :param edge:
+        :return:
+        """
+        if flip_src_target is True:
+            src_id = edge.get_target_node_id()
+            target_id = edge.get_source_node_id()
+        else:
+            src_id = edge.get_source_node_id()
+            target_id = edge.get_target_node_id()
+        d_val = False
+        if edge.get_attributes() is not None:
+            for attrib in edge.get_attributes():
+                if attrib.get_name() == 'directed':
+                    d_val = attrib.get_value()
+                    break
+
+        return 's=' + str(src_id) + ', t=' +\
+               str(target_id) + ', i=' +\
+               edge.get_interaction() +\
+               ', directed=' + str(d_val), d_val
+
+    def _get_edge_dict(self, edges):
+        """
+        Groups a list of edges by source, target, interaction, and directed
+        attribute. The result is a dict
+        where the key is a str in form:
+
+        .. code-block:: python
+
+            s=<SRC NODE>, t=<TARGET NODE>, i=<INTERACTION>, directed=<VALUE>
+
+        and the values are a list of
+        :py:class:`~ndexncipidloader.network.NetworkEdge` objects
+        that should be merged together.
+
+        .. note::
+
+            If two edges have directed ``False``, matching interaction,
+            but flipped source and target node ids, then they will be
+            grouped into the same list
+
+        :param edges: list of
+                      :py:class:`~ndexncipidloader.network.NetworkEdge` objects
+        :type edges: list
+        :return: Grouped edges that should be merged
+        :rtype: dict
+        """
+        edge_dict = {}
+
+        for edge in edges:
+            e_key, d_val = self._get_edge_key(edge)
+
+            if e_key not in edge_dict:
+                reverse_e_key, _ = self._get_edge_key(edge,
+                                                      flip_src_target=True)
+                # check if key is in reverse
+                # if so set e_key to the reverse key
+                # otherwise add new entry in dict with
+                # original e_key
+                if reverse_e_key in edge_dict:
+                    e_key = reverse_e_key
+                else:
+                    edge_dict[e_key] = []
+            # append the edge to dict
+            edge_dict[e_key].append(edge)
+        return edge_dict
+
     def _get_merged_edges(self, edges):
         """
         Examines list of **edges** passed in and creates a new list of edges
@@ -1696,21 +1766,7 @@ class ProteinFamilyNodeMemberRemover(NetworkUpdator):
         :type edges: list
         :return:
         """
-        edge_dict = {}
-
-        for edge in edges:
-            d_val = None
-            if edge.get_attributes() is not None:
-                for attrib in edge.get_attributes():
-                    if attrib.get_name() == 'directed':
-                        d_val = attrib.get_value()
-            e_key = 's=' + str(edge.get_source_node_id()) + ', t=' +\
-                    str(edge.get_target_node_id()) + ', i=' +\
-                    edge.get_interaction() +\
-                    ', directed=' + str(d_val)
-            if e_key not in edge_dict:
-                edge_dict[e_key] = []
-            edge_dict[e_key].append(edge)
+        edge_dict = self._get_edge_dict(edges)
 
         # okay edge_dict has edges with same source target and interaction
         # if values are single, its easy fix add to new list

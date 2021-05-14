@@ -80,7 +80,12 @@ following these conventions:
 * Node attribute named **member** is added and set to list of genes found in lookup in `gene_symbol_mapping.json`_
 * Node attribute named **type** is changed to **proteinfamily**
 
-**11\)** The following network attributes are set
+**11\)** `Changed in 4.0.1`. For each network all **proteinfamily** nodes are examined and if any **members** exist
+         as separate nodes, those nodes are removed and their edges are shifted to the corresponding **proteinfamily**
+         node. Duplicate edges are removed and other edges are merged if **interaction** and **directed** values are the
+         same. In the case of a merge **citation** field values are merged into a new unique list.
+
+**12\)** The following network attributes are set
 
 * **name** set to name of OWL_ file with **.owl.gz** suffix removed except for **PathwayCommons.8.NCI_PID.BIOPAX** which is renamed to **NCI PID - Complete Interactions**
 * **author** (from **Curated By** column in `networkattributes.tsv`_)
@@ -95,7 +100,8 @@ following these conventions:
 * **__iconurl** is set to value of `--iconurl` flag (currently defaulting to http://search.ndexbio.org/static/media/ndex-logo.04d7bf44.svg)
 * **__normalizationversion** is set to 0.1
 
-**12\)** By default each network is made public with full indexed and showcased (visible in user's home network list page)
+**13\)** By default each network is made public with full indexed and showcased (visible in user's home network list page)
+
 
 **NOTE:** `gene_symbol_mapping.json`_ was originally extracted from `here <https://github.com/ndexbio/ndexutils/blob/master/ndexutil/ebs/gene_symbol_mapping.json>`__ but the gene families were updated by calling `ndexloadncipid.py --getfamilies sifdir/` which calls  https://mygene.info via `biothings <https://pypi.org/project/biothings-client/>`__ Python client
 

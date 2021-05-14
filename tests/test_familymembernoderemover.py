@@ -11,6 +11,8 @@ import ndex2
 
 from ndexncipidloader.ndexloadncipid import ProteinFamilyNodeMemberRemover
 from ndexncipidloader.network import NetworkEdgeFactory
+from ndexncipidloader.network import NetworkEdge
+from ndexncipidloader.network import Attribute
 
 
 class TestProteinFamilyNodeMemberRemover(unittest.TestCase):
@@ -38,6 +40,90 @@ class TestProteinFamilyNodeMemberRemover(unittest.TestCase):
         remover = ProteinFamilyNodeMemberRemover()
         self.assertTrue('Removes nodes that '
                         'are part' in remover.get_description())
+
+    def test_get_edge_key(self):
+        ne = NetworkEdge(source_node_id=1, target_node_id=2,
+                         source_node_name='src', target_node_name='target',
+                         interaction='activates')
+        remover = ProteinFamilyNodeMemberRemover()
+
+        # try with no attributes
+        e_key, d_val = remover._get_edge_key(ne)
+        self.assertEqual('s=1, t=2, i=activates, directed=False', e_key)
+        self.assertEqual(False, d_val)
+        e_key, d_val = remover._get_edge_key(ne, flip_src_target=True)
+        self.assertEqual('s=2, t=1, i=activates, directed=False', e_key)
+        self.assertEqual(False, d_val)
+
+        # try with attributes but no match
+        ne.set_attributes([Attribute(name='foo', value='1')])
+        e_key, d_val = remover._get_edge_key(ne)
+        self.assertEqual('s=1, t=2, i=activates, directed=False', e_key)
+        self.assertEqual(False, d_val)
+        e_key, d_val = remover._get_edge_key(ne, flip_src_target=True)
+        self.assertEqual('s=2, t=1, i=activates, directed=False', e_key)
+        self.assertEqual(False, d_val)
+
+        # try with directed attribute True
+        ne.set_attributes([Attribute(name='directed', value=True,
+                                     data_type='boolean')])
+        e_key, d_val = remover._get_edge_key(ne)
+        self.assertEqual('s=1, t=2, i=activates, directed=True', e_key)
+        self.assertEqual(True, d_val)
+        e_key, d_val = remover._get_edge_key(ne, flip_src_target=True)
+        self.assertEqual('s=2, t=1, i=activates, directed=True', e_key)
+        self.assertEqual(True, d_val)
+
+        # try with directed attribute False
+        ne.set_attributes([Attribute(name='directed', value=False,
+                                     data_type='boolean')])
+        e_key, d_val = remover._get_edge_key(ne)
+        self.assertEqual('s=1, t=2, i=activates, directed=False', e_key)
+        self.assertEqual(False, d_val)
+        e_key, d_val = remover._get_edge_key(ne, flip_src_target=True)
+        self.assertEqual('s=2, t=1, i=activates, directed=False', e_key)
+        self.assertEqual(False, d_val)
+
+    def test_get_edge_key(self):
+        remover = ProteinFamilyNodeMemberRemover()
+
+        # try with 1 edge no attributes
+        ne = NetworkEdge(source_node_id=3, target_node_id=2,
+                         interaction='activates')
+        res = remover._get_edge_dict([ne])
+        self.assertEqual(1, len(res))
+        key = 's=3, t=2, i=activates, directed=False'
+        self.assertTrue(key in res)
+        self.assertEqual(1, len(res[key]))
+        self.assertTrue(ne.get_source_node_id() ==
+                        res[key][0].get_source_node_id())
+
+        # try 3 edges where two edges have source/target are flipped and
+        # directed is same value
+        ne_one = NetworkEdge(source_node_id=1, target_node_id=2,
+                             interaction='activates',
+                             attributes=[Attribute(name='directed',
+                                                   value=False,
+                                                   data_type='boolean')])
+        ne_two = NetworkEdge(source_node_id=2, target_node_id=1,
+                             interaction='activates',
+                             attributes=[Attribute(name='directed',
+                                                   value=False,
+                                                   data_type='boolean')])
+        res = remover._get_edge_dict([ne_one, ne_two, ne])
+
+        self.assertEqual(2, len(res))
+        self.assertTrue(key in res)
+        self.assertEqual(1, len(res[key]))
+        self.assertTrue(ne.get_source_node_id() ==
+                        res[key][0].get_source_node_id())
+        mkey = 's=1, t=2, i=activates, directed=False'
+        self.assertTrue(mkey in res)
+        self.assertEqual(2, len(res[mkey]))
+
+
+
+
 
     def test_update_no_family_members(self):
         net = NiceCXNetwork()
@@ -81,6 +167,8 @@ class TestProteinFamilyNodeMemberRemover(unittest.TestCase):
         edges = nef.get_all_edges_connected_to_node(net_cx=net,
                                                     node_id=tab_family)
         self.assertEqual(10, len(edges))
+
+
 
 
 

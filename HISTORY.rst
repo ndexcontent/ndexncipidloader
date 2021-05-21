@@ -2,7 +2,7 @@
 History
 =======
 
-5.0.0 (2021-05-14)
+5.0.0 (2021-05-20)
 -----------------------
 
 * Fixed duplicate node issue by removing nodes and edges from a network if a family node, contains

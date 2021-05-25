@@ -5,8 +5,8 @@ History
 5.0.1 (2021-05-25)
 -----------------------
 
-* Switched default layout (can be overridden with --layout flag) to `force-directed`
-  since `force-directed-cl` may not work on all machines
+* Switched default layout (can be overridden with `--layout` flag) to `force-directed`
+  since `force-directed-cl` may not work on all machines.
 
 5.0.0 (2021-05-20)
 -----------------------

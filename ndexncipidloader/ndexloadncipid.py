@@ -280,7 +280,7 @@ def _parse_arguments(desc, args):
                              'algorithm to run. If Cytoscape is running '
                              'and py4cytoscape is loaded any layout from '
                              'Cytoscape can be used. If "-" is passed in '
-                             'force-directed-cl from Cytoscape will '
+                             'force-directed from Cytoscape will '
                              'be used. If no Cytoscape is available, '
                              '"spring" from networkx is supported')
     parser.add_argument('--cyresturl',
@@ -2227,7 +2227,7 @@ class NDExNciPidLoader(object):
                 self._apply_simple_spring_layout(network)
             else:
                 if self._args.layout == '-':
-                    self._args.layout = 'force-directed-cl'
+                    self._args.layout = 'force-directed'
                 self._apply_cytoscape_layout(network)
 
         network_update_key = self._net_summaries.get(network.get_name().upper())

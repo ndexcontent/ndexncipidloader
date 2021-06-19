@@ -35,6 +35,17 @@ from ndexncipidloader.network import NetworkEdgeFactory
 from ndexncipidloader.network import NetworkNodeFactory
 import ndexncipidloader
 
+# attempt to load indra library
+# and set INDRA_LOADED to True if successful
+INDRA_LOADED = False
+try:
+    from ndexindraloader.indra import Indra
+    from ndexindraloader.exceptions import NDExIndraLoaderError
+    INDRA_LOADED = True
+except ImportError as ie:
+    pass
+
+
 logger = logging.getLogger(__name__)
 
 TSV2NICECXMODULE = 'ndexutil.tsv.tsv2nicecx2'
@@ -106,7 +117,7 @@ Name of file containing network attributes
 stored within this package
 """
 
-STYLE = 'style.cx'
+STYLE = 'indrastyle.cx'
 """
 Name of file containing CX with style
 stored within this package
@@ -256,6 +267,8 @@ def _parse_arguments(desc, args):
     parser.add_argument('--skipproteinfamilycleanup', action='store_true',
                         help='If set, skip removal of nodes that are already'
                              'members of protein families')
+    parser.add_argument('--skipindra', action='store_true',
+                        help='If set, skip INDRA annotation')
     parser.add_argument('--getfamilies', action='store_true',
                         help='If set, code examines owl files and generates '
                              'mapping of protein families')
@@ -1838,6 +1851,210 @@ class ProteinFamilyNodeMemberRemover(NetworkUpdator):
         return node_names, issues
 
 
+class INDRAAnnotator(NetworkUpdator):
+    """
+    Annotates networks with edges from INDRA
+
+    """
+    def __init__(self):
+        """
+        Constructor
+        """
+        super(INDRAAnnotator, self).__init__()
+        if INDRA_LOADED is False:
+            raise NDExNciPidLoaderError('ndexindraloader package not found')
+        self._indraobj = Indra()
+
+    def get_description(self):
+        """
+        Gets description
+        :return:
+        """
+        return 'Adds INDRA edge annotations'
+
+    def update(self, network):
+        """
+        Annotates network in INDRA edge annotations
+
+        :param network: network to update
+        :type network: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
+        :return: list of issues as strings encountered
+        :rtype: list
+        """
+        # annotate the network with INDRA edges if its less then 100 nodes
+        num_nodes = len(network.get_nodes())
+        if num_nodes > 100:
+            return [str(num_nodes) +
+                    'exceeds 100 nodes and cannot be INDRA annotated']
+        try:
+            self._indraobj.annotate_network(net_cx=network, netprefix='',
+                                            source_value='NCI PID')
+        except NDExIndraLoaderError as ne:
+            return [str(ne)]
+
+        issues = []
+
+        # find the nci pid edges
+        nci_pid_edges = self._get_nci_pid_edges(network=network)
+
+        # get list of edge lists that need to be merged
+        edge_lists = self._get_lists_of_edges_to_merge(net_cx=network,
+                                                       nci_pid_edges=nci_pid_edges)
+
+        # remove these edges from network
+        self._remove_edges_from_network(net_cx=network, edge_lists=edge_lists)
+
+        # Merge the edges and report any issues
+        return self._merge_edge_lists(net_cx=network, edge_lists=edge_lists)
+
+    def _remove_edges_from_network(self, net_cx=None, edge_lists=None):
+        """
+        Removes edges found in **edge_lists** object from **net_cx** network
+
+        :param edge_lists: list of lists where elements are
+                           :py:class:`~ndexncipidloader.network.NetworkEdge`
+                           objects
+        :type edge_lists: list
+        :return: None
+        """
+        for e_list in edge_lists:
+            for edge in e_list:
+                # toss the existing edges
+                edge.remove_edge_from_network(net_cx=net_cx)
+
+    def _get_lists_of_edges_to_merge(self, net_cx=None, nci_pid_edges=None):
+        """
+        Iterates through all edges in **nci_pid_edges** and creates a list of
+        lists where each sublist is edges between two nodes that need to be
+        merged.
+
+        :param net_cx:
+        :type net_cx: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
+        :param nci_pid_edges: list of tuple objects of format (edge_id, dict)
+                              where the dict contains {'s': #, 't': #}
+                              denoting id of nodes edge connects
+        :type nci_pid_edges: list
+        :return: list of lists where elements are
+                 :py:class:`~ndexncipidloader.network.NetworkEdge`
+                 objects
+        :rtype: list
+        """
+        edge_lists = []
+        net_edge_fac = NetworkEdgeFactory()
+        for nci_pid_edge in nci_pid_edges:
+            node_list = [nci_pid_edge[1]['s'], nci_pid_edge[1]['t']]
+            c_edges = net_edge_fac.\
+                get_all_edges_connected_to_nodes(net_cx=net_cx,
+                                                 node_id_list=node_list)
+            if len(c_edges) < 2:
+                # dont have to do anything cause there
+                # is not anything to merge
+                continue
+
+            edge_lists.append(c_edges)
+        return edge_lists
+
+    def _split_edges_into_indra_and_nci_pid(self, edges=None):
+        """
+
+        :param edges:
+        :return:
+        """
+        indra_edge = None
+        other_edges = []
+        for ne in edges[1:]:
+            if ne.get_interaction() == 'interacts with':
+                indra_edge = ne
+            else:
+                other_edges.append(ne)
+        return indra_edge, other_edges
+
+    def _merge_edge_lists(self, net_cx=None, edge_lists=None):
+        """
+
+        :param net_cx:
+        :param edge_lists:
+        :return:
+        """
+        issues = []
+        for e_list in edge_lists:
+            merged_edge, subissues = self._merge_edges(net_cx=net_cx, edges=e_list)
+            if merged_edge is not None:
+                merged_edge.add_edge_to_network(net_cx=net_cx)
+            issues.extend(subissues)
+        return issues
+
+    def _merge_edges(self, net_cx=None, edges=None):
+        """
+        # TODO This method has to do way to much. Split this up
+
+        Merges NCI PID edge into INDRA edge taking into account the
+        directionality of both edges.
+
+        For the merge the NCI PID interaction is added to one of the
+        following edge attributes based on rules explained below:
+
+
+        ``SOURCE => TARGET`` - Added here if ``directed`` edge attribute
+                               on the NCI PID edge is ``true``
+
+        ``TARGET => SOURCE`` - Added here if ``directed`` edge attribute
+                               on the NCI PID edge is ``true`` and the
+                               source/target node ids are reversed on the
+                               NCI PID edge
+
+        ``SOURCE - TARGET`` - Added here if ``directed`` edge attribute
+                              on the NCI PID edge is ``false`` or missing
+
+        The value added is ``<INTERACTION> (<COMMA DELIMITED LIST OF CITATIONS>)
+        ``<INTERACTION>`` is taken from the interaction of the NCI PID edge
+         and ``<COMMA DELIMITED LIST OF CITATIONS>`` is the data found in the
+        ``citation`` attribute of the NCI PID edge.
+
+        The ``directed`` edge attribute is set to ``true`` if it was ``true``
+        on the NCI PID edge and the ``reverse directed`` edge attribute is set
+        to ``true`` if it was ``true`` on the NCI PID edge and source/target node
+        ids are reversed.
+
+        ``edge source`` attribute is set to ``INDRA + NCI PID``
+
+        ``pre-collapsed count`` is incremented by ``1``
+
+        :param edges:
+        :return:
+        """
+        # find the INDRA edge and merge the other edge in
+        indra_edge, other_edges = self._split_edges_into_indra_and_nci_pid(edges=edges)
+        if indra_edge is None:
+            return None, ['No INDRA edge found']
+
+        # for edge in other_edges:
+        #    if indra_edge.get_source_node_id() == edge.get_source_node_id():
+        #        indra_edge.merge_edge(edge)
+        #    else:
+
+        return indra_edge, []
+
+    def _get_nci_pid_edges(self, network=None, source_value='NCI PID'):
+        """
+        Find all edges in the network that have an edge source of
+        type **source_value**
+
+        :param network:
+        :return: Edge ids
+        :rtype: list
+        """
+        edge_list = []
+        for edge_id, edge_obj in network.get_edges():
+            e_attr = network.get_edge_attribute(edge_id, Indra.SOURCE)
+            if e_attr is None or e_attr == (None, None):
+                continue
+            if e_attr['v'] == 'NCI PID':
+                edge_list.append((edge_id, edge_obj))
+        return edge_list
+
+
+
 class NDExNciPidLoader(object):
     """
     Loads content from NCI-PID sif files to NDEx
@@ -2069,7 +2286,7 @@ class NDExNciPidLoader(object):
         """
         return [{'node': n,
                  'x': float(G.pos[n][0]),
-                 'y': float(G.pos[n][1])} for n in G.pos]
+                 'y': -float(G.pos[n][1])} for n in G.pos]
 
     def _apply_simple_spring_layout(self, network, iterations=50):
         """
@@ -2787,6 +3004,14 @@ def main(args):
 
         if theargs.skipproteinfamilycleanup is False:
             updators.append(ProteinFamilyNodeMemberRemover())
+
+        if theargs.skipindra is False:
+            if INDRA_LOADED is False:
+                raise NDExNciPidLoaderError('ndexindraloader package not '
+                                            'found. To run this loader '
+                                            'without INDRA add --skipindra '
+                                            'flag')
+            updators.append(INDRAAnnotator())
 
         if theargs.skipchecker is False:
             updators.append(GeneSymbolChecker(searcher=searcher))

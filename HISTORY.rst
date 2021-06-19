@@ -2,6 +2,14 @@
 History
 =======
 
+6.0.0 (TBD)
+-----------------------
+
+* Added link to NCI PID publication to each network
+
+* INDRA annotation is now performed on all networks with 100 or less nodes
+  if INDRA package is found on machine. Can be skipped with ``--skipindra`` flag.
+
 5.0.1 (2021-05-25)
 -----------------------
 

@@ -33,6 +33,7 @@ from ndexutil.cytoscape import DEFAULT_CYREST_API
 from ndexutil.ndex import NDExExtraUtils
 from ndexncipidloader.network import NetworkEdgeFactory
 from ndexncipidloader.network import NetworkNodeFactory
+from ndexncipidloader.network import Attribute
 import ndexncipidloader
 
 # attempt to load indra library
@@ -1895,7 +1896,7 @@ class INDRAAnnotator(NetworkUpdator):
         issues = []
 
         # find the nci pid edges
-        nci_pid_edges = self._get_nci_pid_edges(network=network)
+        nci_pid_edges = self._get_nci_pid_edge_objs(network=network)
 
         # get list of edge lists that need to be merged
         edge_lists = self._get_lists_of_edges_to_merge(net_cx=network,
@@ -1944,8 +1945,8 @@ class INDRAAnnotator(NetworkUpdator):
         for nci_pid_edge in nci_pid_edges:
             node_list = [nci_pid_edge[1]['s'], nci_pid_edge[1]['t']]
             c_edges = net_edge_fac.\
-                get_all_edges_connected_to_nodes(net_cx=net_cx,
-                                                 node_id_list=node_list)
+                get_interconnected_edges(net_cx=net_cx,
+                                         node_id_list=node_list)
             if len(c_edges) < 2:
                 # dont have to do anything cause there
                 # is not anything to merge
@@ -1962,8 +1963,8 @@ class INDRAAnnotator(NetworkUpdator):
         """
         indra_edge = None
         other_edges = []
-        for ne in edges[1:]:
-            if ne.get_interaction() == 'interacts with':
+        for ne in edges:
+            if ne.get_interaction() is not None and ne.get_interaction() == 'interacts with':
                 indra_edge = ne
             else:
                 other_edges.append(ne)
@@ -1971,6 +1972,8 @@ class INDRAAnnotator(NetworkUpdator):
 
     def _merge_edge_lists(self, net_cx=None, edge_lists=None):
         """
+        Given a list of edge lists, merge edges in each sublist and add them
+        to the network
 
         :param net_cx:
         :param edge_lists:
@@ -2028,14 +2031,172 @@ class INDRAAnnotator(NetworkUpdator):
         if indra_edge is None:
             return None, ['No INDRA edge found']
 
-        # for edge in other_edges:
-        #    if indra_edge.get_source_node_id() == edge.get_source_node_id():
-        #        indra_edge.merge_edge(edge)
-        #    else:
+        if other_edges is None or len(other_edges) == 0:
+            return None, []
 
+        for edge in other_edges:
+            reverse_orientation = False
+            if indra_edge.get_source_node_id() != edge.get_source_node_id():
+                reverse_orientation = True
+            self._merge_edge(indra_edge=indra_edge,
+                             nci_edge=edge,
+                             reverse_orientation=reverse_orientation)
+        print('indra edge: ' + str(indra_edge) + '\n')
+        for a in indra_edge.get_attributes():
+            print('\t' + str(a) + '\n')
         return indra_edge, []
 
-    def _get_nci_pid_edges(self, network=None, source_value='NCI PID'):
+    def _is_edge_directed(self, edge=None):
+        """
+        Determines whether  edge is directed
+        :param edge:
+        :type edge: :py:class:`~ndexncipidloader.network.NetworkEdge`
+        :return: ``True`` if edge is directed otherwise ``False``
+        :rtype: bool
+        """
+        directed_attr = edge.get_attribute_by_name(Indra.DIRECTED)
+        if directed_attr is None:
+            return False
+
+        return bool(directed_attr.get_value())
+
+    def _get_nci_citations(self, nci_edge=None):
+        """
+        Gets NCI edge citation attribute if any
+
+        :param nci_edge:
+        :return: citations, if non found empty list is returned
+        :rtype: list
+        """
+        citation_attr = nci_edge.\
+            get_attribute_by_name(RedundantEdgeAdjudicator.CITATION)
+        if citation_attr is not None:
+            return citation_attr.get_value()
+        return []
+
+    def _update_interaction_attribute(self, edge=None,
+                                      name=None,
+                                      interaction=None,
+                                      citations=None,
+                                      update_directed=False,
+                                      update_reversedirected=False):
+        """
+        Adds **interaction** to attribute matching **name** on edge.
+
+        If attribute is not found, the attribute is created and
+        the data type is set to a ``list_of_string``.
+
+        The **interaction** is added as a list element in this
+        format:
+
+        .. code-block::
+
+            <INTERACTION>(NCI PID - <COMMA DELIMITED CITATIONS>)
+
+        :param name: Name of attribute
+        :type name: str
+        :param interaction: Interaction
+        :type interaction: str
+        :param citations: A list of pubmed citations as str objects
+        :type citations: list
+        :return: empty list upon success or str objects in a list with
+                 issues encountered.
+        :rtype: list
+        """
+        int_attr = edge.get_attribute_by_name(name)
+        if int_attr is None:
+            int_attr = Attribute(name=name, value=[],
+                                 data_type='list_of_string')
+            if edge.get_attributes() is None:
+                edge.set_attributes([])
+            edge.get_attributes().append(int_attr)
+
+        if update_directed is True:
+            rdir_attr = edge.get_attribute_by_name(Indra.DIRECTED)
+            if rdir_attr is None:
+                rdir_attr = Attribute(name=Indra.DIRECTED, value=True,
+                                     data_type='boolean')
+                edge.get_attributes().append(rdir_attr)
+            else:
+                rdir_attr.set_value(True)
+
+        if update_reversedirected is True:
+            rdir_attr = edge.get_attribute_by_name(Indra.REVERSE_DIRECTED)
+            if rdir_attr is None:
+                rdir_attr = Attribute(name=Indra.REVERSE_DIRECTED, value=True,
+                                     data_type='boolean')
+                edge.get_attributes().append(rdir_attr)
+            else:
+                rdir_attr.set_value(True)
+
+        int_str = interaction + '(NCI PID - '
+        if citations is not None and len(citations) > 0:
+            int_str += ','.join(citations)
+        int_str += ')'
+        int_attr.get_value().append(int_str)
+
+        print('edge: ' + str(edge) + '\n')
+        for a in edge.get_attributes():
+            print('\t' + str(a) + '\n')
+        print('----------------------\n\n\n')
+
+        return []
+
+    def _merge_edge(self, indra_edge=None,
+                    nci_edge=None,
+                    reverse_orientation=False):
+        """
+        Merge the edge with same orientation into **indra_edge**
+        setting **directed** attribute to ``True`` if **indra_edge**
+         or other edge
+        **directed** is ``True``
+
+        :param indra_edge:
+        :param nci_edge:
+        :return:
+        """
+        # to set the interaction we need to know if the NCI
+        # edge is directed so here we look that up
+        is_nci_directed = self._is_edge_directed(edge=nci_edge)
+
+        # get citations
+        the_citations = self._get_nci_citations(nci_edge=nci_edge)
+
+        # get interaction
+        nci_interaction = nci_edge.get_interaction()
+
+        if is_nci_directed is True:
+            if reverse_orientation is True:
+                # create TARGET => SOURCE if it does not exist
+                # and if it does not exist set directed to True
+                # add interaction(citations) to TARGET => SOURCE
+                self._update_interaction_attribute(edge=indra_edge,
+                                                   name='TARGET => SOURCE',
+                                                   interaction=nci_interaction,
+                                                   citations=the_citations,
+                                                   update_reversedirected=True)
+            else:
+                # create SOURCE => TARGET if it does not exist
+                # and if it does not exist set directed to True
+                # add interaction(citations) to SOURCE => TARGET
+                self._update_interaction_attribute(edge=indra_edge,
+                                                   name='SOURCE => TARGET',
+                                                   interaction=nci_interaction,
+                                                   citations=the_citations,
+                                                   update_directed=True)
+
+        else:
+            # create SOURCE - TARGET if it does not exist
+            # add interaction(citations) to SOURCE - TARGET
+            self._update_interaction_attribute(edge=indra_edge,
+                                               name='SOURCE - TARGET',
+                                               interaction=nci_interaction,
+                                               citations=the_citations)
+
+        edge_source = indra_edge.get_attribute_by_name(Indra.SOURCE)
+        edge_source.set_value(edge_source.get_value() + ' + NCI PID')
+
+    def _get_nci_pid_edge_objs(self, network=None, source_value='NCI PID'):
         """
         Find all edges in the network that have an edge source of
         type **source_value**
@@ -2049,10 +2210,9 @@ class INDRAAnnotator(NetworkUpdator):
             e_attr = network.get_edge_attribute(edge_id, Indra.SOURCE)
             if e_attr is None or e_attr == (None, None):
                 continue
-            if e_attr['v'] == 'NCI PID':
+            if e_attr['v'] == source_value:
                 edge_list.append((edge_id, edge_obj))
         return edge_list
-
 
 
 class NDExNciPidLoader(object):

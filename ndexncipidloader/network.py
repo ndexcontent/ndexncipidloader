@@ -242,6 +242,22 @@ class NetworkNode(object):
         """
         self._attributes = attributes
 
+    def get_attribute_by_name(self, name):
+        """
+        Gets attribute matching **name** passed in
+
+        :param name: Name of attribute
+        :type name: str
+        :return: Attribute matching **name** or ``None`` if not found
+        :rtype: :py:class:`Attribute`
+        """
+        if self._attributes is None:
+            return None
+        for attr in self._attributes:
+            if attr.get_name() == name:
+                return attr
+        return None
+
     def remove_node_from_network(self, net_cx=None):
         """
         Removes node and any attributes on that node
@@ -445,6 +461,22 @@ class NetworkEdge(object):
         :type attributes: list
         """
         self._attributes = attributes
+
+    def get_attribute_by_name(self, name):
+        """
+        Gets attribute matching **name** passed in
+
+        :param name: Name of attribute
+        :type name: str
+        :return: Attribute matching **name** or ``None`` if not found
+        :rtype: :py:class:`Attribute`
+        """
+        if self._attributes is None:
+            return None
+        for attr in self._attributes:
+            if attr.get_name() == name:
+                return attr
+        return None
 
     def add_edge_to_network(self, net_cx=None, source_node_id=None,
                             target_node_id=None):
@@ -811,10 +843,11 @@ class NetworkEdgeFactory(object):
                              attributes=attributes)
         return n_edge
 
-    def get_all_edges_connected_to_nodes(self, net_cx=None, node_id_list=None,
-                                         interaction=None):
+    def get_interconnected_edges(self, net_cx=None, node_id_list=None,
+                                 interaction=None):
         """
-        Gets all edges that have nodes in **node_id_list** list passed in
+        Gets all edges where both ends of edge point to nodes
+        in **node_id_list** list
 
         :param net_cx: Network to get edges from
         :type net_cx: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`

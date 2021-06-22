@@ -1889,7 +1889,8 @@ class INDRAAnnotator(NetworkUpdator):
                     'exceeds 100 nodes and cannot be INDRA annotated']
         try:
             self._indraobj.annotate_network(net_cx=network, netprefix='',
-                                            source_value='NCI PID')
+                                            source_value='NCI PID',
+                                            min_evidence_cnt=3)
         except NDExIndraLoaderError as ne:
             return [str(ne)]
 
@@ -2041,9 +2042,11 @@ class INDRAAnnotator(NetworkUpdator):
             self._merge_edge(indra_edge=indra_edge,
                              nci_edge=edge,
                              reverse_orientation=reverse_orientation)
-        print('indra edge: ' + str(indra_edge) + '\n')
-        for a in indra_edge.get_attributes():
-            print('\t' + str(a) + '\n')
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug('edge: ' + str(edge) + '\n')
+            for a in edge.get_attributes():
+                logger.debug('\t' + str(a) + '\n')
+
         return indra_edge, []
 
     def _is_edge_directed(self, edge=None):
@@ -2129,16 +2132,24 @@ class INDRAAnnotator(NetworkUpdator):
             else:
                 rdir_attr.set_value(True)
 
-        int_str = interaction + '(NCI PID - '
+        int_str = interaction + '('
         if citations is not None and len(citations) > 0:
-            int_str += ','.join(citations)
+            s_cites = []
+            for cite in citations:
+                s_cites.append(re.sub('^pubmed:', '', cite))
+            pmedurl = '<a href="https://pubmed.ncbi.nlm.nih.gov/?term=' +\
+                      '+'.join(s_cites) + '" target="_blank">NCI PID</a>'
+            int_str += pmedurl
+        else:
+            int_str += 'NCI PID'
+
         int_str += ')'
         int_attr.get_value().append(int_str)
 
-        print('edge: ' + str(edge) + '\n')
-        for a in edge.get_attributes():
-            print('\t' + str(a) + '\n')
-        print('----------------------\n\n\n')
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug('edge: ' + str(edge) + '\n')
+            for a in edge.get_attributes():
+                logger.debug('\t' + str(a) + '\n')
 
         return []
 

@@ -270,6 +270,8 @@ def _parse_arguments(desc, args):
                              'members of protein families')
     parser.add_argument('--skipindra', action='store_true',
                         help='If set, skip INDRA annotation')
+    parser.add_argument('--minindraevidence', type=int, default=3,
+                        help='Minimum INDRA evidence count for INDRA statement.')
     parser.add_argument('--getfamilies', action='store_true',
                         help='If set, code examines owl files and generates '
                              'mapping of protein families')
@@ -1857,7 +1859,7 @@ class INDRAAnnotator(NetworkUpdator):
     Annotates networks with edges from INDRA
 
     """
-    def __init__(self):
+    def __init__(self, min_evidence=1):
         """
         Constructor
         """
@@ -1865,6 +1867,7 @@ class INDRAAnnotator(NetworkUpdator):
         if INDRA_LOADED is False:
             raise NDExNciPidLoaderError('ndexindraloader package not found')
         self._indraobj = Indra()
+        self._min_evidence = min_evidence
 
     def get_description(self):
         """
@@ -1890,7 +1893,7 @@ class INDRAAnnotator(NetworkUpdator):
         try:
             self._indraobj.annotate_network(net_cx=network, netprefix='',
                                             source_value='NCI PID',
-                                            min_evidence_cnt=3)
+                                            min_evidence_cnt=self._min_evidence)
         except NDExIndraLoaderError as ne:
             return [str(ne)]
 
@@ -1907,7 +1910,54 @@ class INDRAAnnotator(NetworkUpdator):
         self._remove_edges_from_network(net_cx=network, edge_lists=edge_lists)
 
         # Merge the edges and report any issues
-        return self._merge_edge_lists(net_cx=network, edge_lists=edge_lists)
+        issues.extend(self._merge_edge_lists(net_cx=network, edge_lists=edge_lists))
+
+        # find any remaining nci pid edges
+        remain_nci_pid_edges = self._get_nci_pid_edge_objs(network=network)
+
+        # update attributes on nci pid edges to
+        # align with INDRA annotated edges
+        issues.extend(self._update_existing_nci_pid_edges(net_cx=network,
+                                                          nci_edges=remain_nci_pid_edges))
+
+        return issues
+
+    def _update_existing_nci_pid_edges(self, net_cx=None,
+                                       nci_edges=None):
+        """
+
+        :param net_cx:
+        :type nci_cx: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
+        :param nci_edges:
+        :type nci_edges: list
+        :return: Any issues found in update or empty list
+        :rtype: list
+        """
+        net_edge_fac = NetworkEdgeFactory()
+        for edge_id in nci_edges:
+            ne = net_edge_fac.get_network_edge_from_network(net_cx=net_cx,
+                                                            edge_id=edge_id[0])
+
+            ne.get_attributes().append(Attribute(name=Indra.REVERSE_DIRECTED,
+                                                 value=False, data_type='boolean'))
+
+            citations = self._get_nci_citations(nci_edge=ne)
+            evid_str = ne.get_interaction() + '(' +\
+                       self._get_nci_citations_as_single_ahref(citations=citations) + ')'
+            if self._is_edge_directed(edge=ne):
+                attr_name = 'SOURCE => TARGET'
+            else:
+                attr_name = 'SOURCE - TARGET'
+
+            ne.get_attributes().append(Attribute(name=attr_name,
+                                                 value=[evid_str],
+                                                 data_type='list_of_string'))
+            cite_attr = ne.get_attribute_by_name('citation')
+            ne.get_attributes().remove(cite_attr)
+            ne.remove_edge_from_network(net_cx=net_cx)
+            ne.add_edge_to_network(net_cx=net_cx)
+
+        return []
 
     def _remove_edges_from_network(self, net_cx=None, edge_lists=None):
         """
@@ -1943,8 +1993,17 @@ class INDRAAnnotator(NetworkUpdator):
         """
         edge_lists = []
         net_edge_fac = NetworkEdgeFactory()
+        node_pair_lists = []
         for nci_pid_edge in nci_pid_edges:
             node_list = [nci_pid_edge[1]['s'], nci_pid_edge[1]['t']]
+            skip_edge = False
+            for n_p_list in node_pair_lists:
+                if node_list[0] in n_p_list and node_list[1] in n_p_list:
+                    skip_edge = True
+                    break
+            if skip_edge is True:
+                continue
+            node_pair_lists.append(node_list)
             c_edges = net_edge_fac.\
                 get_interconnected_edges(net_cx=net_cx,
                                          node_id_list=node_list)
@@ -2077,6 +2136,21 @@ class INDRAAnnotator(NetworkUpdator):
             return citation_attr.get_value()
         return []
 
+    def _get_nci_citations_as_single_ahref(self, citations):
+        """
+
+        :param citations:
+        :return:
+        """
+        if citations is None or len(citations) == 0:
+            return 'NCI PID'
+
+        s_cites = []
+        for cite in citations:
+            s_cites.append(re.sub('^pubmed:', '', cite))
+        return '<a href="https://pubmed.ncbi.nlm.nih.gov/?term=' + \
+               '+'.join(s_cites) + '" target="_blank">NCI PID</a>'
+
     def _update_interaction_attribute(self, edge=None,
                                       name=None,
                                       interaction=None,
@@ -2118,7 +2192,7 @@ class INDRAAnnotator(NetworkUpdator):
             rdir_attr = edge.get_attribute_by_name(Indra.DIRECTED)
             if rdir_attr is None:
                 rdir_attr = Attribute(name=Indra.DIRECTED, value=True,
-                                     data_type='boolean')
+                                      data_type='boolean')
                 edge.get_attributes().append(rdir_attr)
             else:
                 rdir_attr.set_value(True)
@@ -2127,22 +2201,13 @@ class INDRAAnnotator(NetworkUpdator):
             rdir_attr = edge.get_attribute_by_name(Indra.REVERSE_DIRECTED)
             if rdir_attr is None:
                 rdir_attr = Attribute(name=Indra.REVERSE_DIRECTED, value=True,
-                                     data_type='boolean')
+                                      data_type='boolean')
                 edge.get_attributes().append(rdir_attr)
             else:
                 rdir_attr.set_value(True)
 
         int_str = interaction + '('
-        if citations is not None and len(citations) > 0:
-            s_cites = []
-            for cite in citations:
-                s_cites.append(re.sub('^pubmed:', '', cite))
-            pmedurl = '<a href="https://pubmed.ncbi.nlm.nih.gov/?term=' +\
-                      '+'.join(s_cites) + '" target="_blank">NCI PID</a>'
-            int_str += pmedurl
-        else:
-            int_str += 'NCI PID'
-
+        int_str += self._get_nci_citations_as_single_ahref(citations=citations)
         int_str += ')'
         int_attr.get_value().append(int_str)
 
@@ -2205,7 +2270,9 @@ class INDRAAnnotator(NetworkUpdator):
                                                citations=the_citations)
 
         edge_source = indra_edge.get_attribute_by_name(Indra.SOURCE)
-        edge_source.set_value(edge_source.get_value() + ' + NCI PID')
+
+        if ' + NCI PID' not in edge_source.get_value():
+            edge_source.set_value(edge_source.get_value() + ' + NCI PID')
 
     def _get_nci_pid_edge_objs(self, network=None, source_value='NCI PID'):
         """
@@ -3182,7 +3249,7 @@ def main(args):
                                             'found. To run this loader '
                                             'without INDRA add --skipindra '
                                             'flag')
-            updators.append(INDRAAnnotator())
+            updators.append(INDRAAnnotator(min_evidence=theargs.minindraevidence))
 
         if theargs.skipchecker is False:
             updators.append(GeneSymbolChecker(searcher=searcher))

@@ -190,8 +190,8 @@ class TestINDRAAnnotator(unittest.TestCase):
         # check interaction
         int_attr = edge.get_attribute_by_name('SOURCE => TARGET')
         self.assertEqual('list_of_string', int_attr.get_data_type())
-        self.assertEqual(['breaks(NCI PID - pubmed:1,pubmed:2)'],
-                         int_attr.get_value())
+        self.assertTrue('breaks(' in
+                         int_attr.get_value()[0])
 
     def test_update_interaction_attribute_on_undirected_edge(self):
         annotator = INDRAAnnotator()
@@ -229,8 +229,8 @@ class TestINDRAAnnotator(unittest.TestCase):
         # check interaction
         int_attr = edge.get_attribute_by_name('SOURCE => TARGET')
         self.assertEqual('list_of_string', int_attr.get_data_type())
-        self.assertEqual(['breaks(NCI PID - pubmed:1,pubmed:2)'],
-                         int_attr.get_value())
+        self.assertTrue('breaks(' in
+                         int_attr.get_value()[0])
 
         int_attr = edge.get_attribute_by_name('SOURCE - TARGET')
         self.assertEqual('list_of_string', int_attr.get_data_type())

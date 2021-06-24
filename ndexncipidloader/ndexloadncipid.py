@@ -118,11 +118,18 @@ Name of file containing network attributes
 stored within this package
 """
 
-STYLE = 'indrastyle.cx'
+STYLE = 'style.cx'
 """
 Name of file containing CX with style
 stored within this package
 """
+
+INDRASTYLE = 'indrastyle.cx'
+"""
+Name of file containing CX with style for 
+INDRA annotated networks within this package
+"""
+
 
 GENE_SYMBOL_MAPPING = 'gene_symbol_mapping.json'
 """
@@ -161,14 +168,20 @@ def get_networkattributes():
     return os.path.join(get_package_dir(), NET_ATTRIBS)
 
 
-def get_style():
+def get_style(indrastyle=False):
     """
     Gets the style stored with this package
 
     :return: path to file
     :rtype: string
     """
-    return os.path.join(get_package_dir(), STYLE)
+
+    if indrastyle is None or indrastyle is False:
+        thestyle = STYLE
+    else:
+        thestyle = INDRASTYLE
+    return os.path.join(get_package_dir(), thestyle)
+
 
 
 def get_gene_symbol_mapping():
@@ -240,8 +253,8 @@ def _parse_arguments(desc, args):
                         help='If set, new networks are NOT showcased')
     parser.add_argument('--style',
                         help='Path to NDEx CX file to use for styling '
-                             'networks',
-                        default=get_style())
+                             'networks. If unset either style.cx or indrastyle.cx '
+                             'included in this package is used')
     rel_ver = datetime.now().strftime('%b-%Y').upper()
     parser.add_argument('--releaseversion',
                         help='Sets version network attribute',
@@ -1920,6 +1933,7 @@ class INDRAAnnotator(NetworkUpdator):
         issues.extend(self._update_existing_nci_pid_edges(net_cx=network,
                                                           nci_edges=remain_nci_pid_edges))
 
+
         return issues
 
     def _update_existing_nci_pid_edges(self, net_cx=None,
@@ -2346,6 +2360,17 @@ class NDExNciPidLoader(object):
 
         self._networksystemproperty_retry = 3
         self._networksystemproperty_wait = 1
+
+        try:
+            if self._args.style is None:
+                if self._args.skipindra is True:
+                    self._args.style = get_style(indrastyle=False)
+                else:
+                    self._args.style = get_style(indrastyle=True)
+        except AttributeError as ae:
+            logger.exception('Something bad happened when '
+                             'looking at style attribute: ' + str(ae))
+            pass
 
     def _parse_config(self):
         """

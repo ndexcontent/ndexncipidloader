@@ -97,6 +97,11 @@ GENERATED_BY_ATTRIB = 'prov:wasGeneratedBy'
 Network attribute to denote what created this network
 """
 
+REFERENCE_ATTRIB = 'Reference'
+"""
+Network attribute to denote publication for this network
+"""
+
 DERIVED_FROM_ATTRIB = 'prov:wasDerivedFrom'
 """
 Network attribute to denote source of network data
@@ -881,7 +886,7 @@ class DirectedEdgeSetter(NetworkUpdator):
     True or False as described
     below in :py:func:`update_edge_direction`
     """
-    DIRECTED_ATTRIB = 'directed'
+    DIRECTED_ATTRIB = '__directed'
 
     def __init__(self):
         """
@@ -1729,14 +1734,15 @@ class ProteinFamilyNodeMemberRemover(NetworkUpdator):
         d_val = False
         if edge.get_attributes() is not None:
             for attrib in edge.get_attributes():
-                if attrib.get_name() == 'directed':
+                if attrib.get_name() == DirectedEdgeSetter.DIRECTED_ATTRIB:
                     d_val = attrib.get_value()
                     break
 
         return 's=' + str(src_id) + ', t=' +\
                str(target_id) + ', i=' +\
                edge.get_interaction() +\
-               ', directed=' + str(d_val), d_val
+               ', ' + DirectedEdgeSetter.DIRECTED_ATTRIB +\
+               '=' + str(d_val), d_val
 
     def _get_edge_dict(self, edges):
         """
@@ -1900,12 +1906,12 @@ class INDRAAnnotator(NetworkUpdator):
         """
         # annotate the network with INDRA edges if its less then 100 nodes
         num_nodes = len(network.get_nodes())
-        if num_nodes > 100:
+        if num_nodes > 200:
             return [str(num_nodes) +
-                    'exceeds 100 nodes and cannot be INDRA annotated']
+                    'exceeds 200 nodes and cannot be INDRA annotated']
         try:
             self._indraobj.annotate_network(net_cx=network, netprefix='',
-                                            source_value='NCI PID',
+                                            source_value='NCI-PID',
                                             min_evidence_cnt=self._min_evidence)
         except NDExIndraLoaderError as ne:
             return [str(ne)]
@@ -1932,8 +1938,6 @@ class INDRAAnnotator(NetworkUpdator):
         # align with INDRA annotated edges
         issues.extend(self._update_existing_nci_pid_edges(net_cx=network,
                                                           nci_edges=remain_nci_pid_edges))
-
-
         return issues
 
     def _update_existing_nci_pid_edges(self, net_cx=None,
@@ -1956,16 +1960,12 @@ class INDRAAnnotator(NetworkUpdator):
                                                  value=False, data_type='boolean'))
 
             citations = self._get_nci_citations(nci_edge=ne)
-            evid_str = ne.get_interaction() + '(' +\
-                       self._get_nci_citations_as_single_ahref(citations=citations) + ')'
-            if self._is_edge_directed(edge=ne):
-                attr_name = 'SOURCE => TARGET'
-            else:
-                attr_name = 'SOURCE - TARGET'
+            evid_str = ne.get_interaction() +\
+                       self._get_nci_citations_as_single_ahref(citations=citations) + '<br/>'
 
-            ne.get_attributes().append(Attribute(name=attr_name,
-                                                 value=[evid_str],
-                                                 data_type='list_of_string'))
+            ne.get_attributes().append(Attribute(name=Indra.RELATIONSHIPS,
+                                                 value=evid_str,
+                                                 data_type='string'))
             cite_attr = ne.get_attribute_by_name('citation')
             ne.get_attributes().remove(cite_attr)
             ne.remove_edge_from_network(net_cx=net_cx)
@@ -2063,39 +2063,17 @@ class INDRAAnnotator(NetworkUpdator):
 
     def _merge_edges(self, net_cx=None, edges=None):
         """
-        # TODO This method has to do way to much. Split this up
-
         Merges NCI PID edge into INDRA edge taking into account the
-        directionality of both edges.
+        directionality of both edges and updating ``__directed`` and
+        ``__reverse_directed`` edge attributes and updating ``__edge_source``
+        edge attribute.
 
-        For the merge the NCI PID interaction is added to one of the
-        following edge attributes based on rules explained below:
-
-
-        ``SOURCE => TARGET`` - Added here if ``directed`` edge attribute
-                               on the NCI PID edge is ``true``
-
-        ``TARGET => SOURCE`` - Added here if ``directed`` edge attribute
-                               on the NCI PID edge is ``true`` and the
-                               source/target node ids are reversed on the
-                               NCI PID edge
-
-        ``SOURCE - TARGET`` - Added here if ``directed`` edge attribute
-                              on the NCI PID edge is ``false`` or missing
-
-        The value added is ``<INTERACTION> (<COMMA DELIMITED LIST OF CITATIONS>)
-        ``<INTERACTION>`` is taken from the interaction of the NCI PID edge
-         and ``<COMMA DELIMITED LIST OF CITATIONS>`` is the data found in the
-        ``citation`` attribute of the NCI PID edge.
-
-        The ``directed`` edge attribute is set to ``true`` if it was ``true``
-        on the NCI PID edge and the ``reverse directed`` edge attribute is set
+        The ``__directed`` edge attribute is set to ``true`` if it was ``true``
+        on the NCI PID edge and the ``__reverse_directed`` edge attribute is set
         to ``true`` if it was ``true`` on the NCI PID edge and source/target node
         ids are reversed.
 
-        ``edge source`` attribute is set to ``INDRA + NCI PID``
-
-        ``pre-collapsed count`` is incremented by ``1``
+        ``__edge_source`` attribute is set to ``INDRA + NCI PID``
 
         :param edges:
         :return:
@@ -2157,13 +2135,20 @@ class INDRAAnnotator(NetworkUpdator):
         :return:
         """
         if citations is None or len(citations) == 0:
-            return 'NCI PID'
+            return ''
 
         s_cites = []
+        citation_count = len(citations)
+        plural = ''
+        if citation_count > 1:
+            plural = 's'
+
         for cite in citations:
             s_cites.append(re.sub('^pubmed:', '', cite))
-        return '<a href="https://pubmed.ncbi.nlm.nih.gov/?term=' + \
-               '+'.join(s_cites) + '" target="_blank">NCI PID</a>'
+        return '(<a href="https://pubmed.ncbi.nlm.nih.gov/?term=' + \
+               '+'.join(s_cites) + '" target="' +\
+               Indra.DEFAULT_BROWSER_TARGET + '">' +\
+               str(citation_count) + ' citation' + plural + '</a>)'
 
     def _update_interaction_attribute(self, edge=None,
                                       name=None,
@@ -2175,14 +2160,14 @@ class INDRAAnnotator(NetworkUpdator):
         Adds **interaction** to attribute matching **name** on edge.
 
         If attribute is not found, the attribute is created and
-        the data type is set to a ``list_of_string``.
+        the data type is set to a ``string``.
 
         The **interaction** is added as a list element in this
         format:
 
         .. code-block::
 
-            <INTERACTION>(NCI PID - <COMMA DELIMITED CITATIONS>)
+            <INTERACTION>(NCI-PID - <COMMA DELIMITED CITATIONS>)
 
         :param name: Name of attribute
         :type name: str
@@ -2194,13 +2179,17 @@ class INDRAAnnotator(NetworkUpdator):
                  issues encountered.
         :rtype: list
         """
-        int_attr = edge.get_attribute_by_name(name)
-        if int_attr is None:
-            int_attr = Attribute(name=name, value=[],
-                                 data_type='list_of_string')
-            if edge.get_attributes() is None:
-                edge.set_attributes([])
-            edge.get_attributes().append(int_attr)
+
+        # as Requested by Dexter on 1/27/22 do NOT add NCI PID interaction to
+        # Relationships edge attribute
+        #
+        # int_attr = edge.get_attribute_by_name(name)
+        # if int_attr is None:
+        #    int_attr = Attribute(name=name, value='',
+        #                         data_type='string')
+        #    if edge.get_attributes() is None:
+        #        edge.set_attributes([])
+        #    edge.get_attributes().append(int_attr)
 
         if update_directed is True:
             rdir_attr = edge.get_attribute_by_name(Indra.DIRECTED)
@@ -2220,10 +2209,15 @@ class INDRAAnnotator(NetworkUpdator):
             else:
                 rdir_attr.set_value(True)
 
-        int_str = interaction + '('
-        int_str += self._get_nci_citations_as_single_ahref(citations=citations)
-        int_str += ')'
-        int_attr.get_value().append(int_str)
+        # as Requested by Dexter on 1/27/22 do NOT add NCI PID interaction to
+        # Relationships edge attribute
+        #
+        # int_str = interaction + '('
+        # int_str += self._get_nci_citations_as_single_ahref(citations=citations)
+        # int_str += ')<br/>'
+        # int_attr.set_value(int_attr.get_value() + int_str)
+
+        # increment raw evidence count to include NCI PID citations
 
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug('edge: ' + str(edge) + '\n')
@@ -2254,41 +2248,27 @@ class INDRAAnnotator(NetworkUpdator):
 
         # get interaction
         nci_interaction = nci_edge.get_interaction()
-
+        update_directed = False
+        update_reversedirected = False
         if is_nci_directed is True:
             if reverse_orientation is True:
-                # create TARGET => SOURCE if it does not exist
-                # and if it does not exist set directed to True
-                # add interaction(citations) to TARGET => SOURCE
-                self._update_interaction_attribute(edge=indra_edge,
-                                                   name='TARGET => SOURCE',
-                                                   interaction=nci_interaction,
-                                                   citations=the_citations,
-                                                   update_reversedirected=True)
+                update_reversedirected=True
             else:
-                # create SOURCE => TARGET if it does not exist
-                # and if it does not exist set directed to True
-                # add interaction(citations) to SOURCE => TARGET
-                self._update_interaction_attribute(edge=indra_edge,
-                                                   name='SOURCE => TARGET',
-                                                   interaction=nci_interaction,
-                                                   citations=the_citations,
-                                                   update_directed=True)
+                update_directed = True
 
-        else:
-            # create SOURCE - TARGET if it does not exist
-            # add interaction(citations) to SOURCE - TARGET
-            self._update_interaction_attribute(edge=indra_edge,
-                                               name='SOURCE - TARGET',
-                                               interaction=nci_interaction,
-                                               citations=the_citations)
+        self._update_interaction_attribute(edge=indra_edge,
+                                           name=Indra.RELATIONSHIPS,
+                                           interaction=nci_interaction,
+                                           citations=the_citations,
+                                           update_directed=update_directed,
+                                           update_reversedirected=update_reversedirected)
 
         edge_source = indra_edge.get_attribute_by_name(Indra.SOURCE)
 
-        if ' + NCI PID' not in edge_source.get_value():
-            edge_source.set_value(edge_source.get_value() + ' + NCI PID')
+        if ' + NCI-PID' not in edge_source.get_value():
+            edge_source.set_value(edge_source.get_value() + ' + NCI-PID')
 
-    def _get_nci_pid_edge_objs(self, network=None, source_value='NCI PID'):
+    def _get_nci_pid_edge_objs(self, network=None, source_value='NCI-PID'):
         """
         Find all edges in the network that have an edge source of
         type **source_value**
@@ -2727,6 +2707,9 @@ class NDExNciPidLoader(object):
         # set type network attribute
         self._set_type(network)
 
+        # set reference network attribute
+        self._set_reference_in_network_attributes(network)
+
         # set iconurl
         self._set_iconurl(network)
 
@@ -2872,6 +2855,25 @@ class NDExNciPidLoader(object):
         :return:
         """
         network.set_network_attribute('version', self._args.releaseversion)
+
+    def _set_reference_in_network_attributes(self, network):
+        """
+        Sets the network attribute :py:const:`REFERENCE_ATTRIB`
+        with link to NCI PID article
+        :param network: network to add attribute
+        :type :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
+        :return: None
+        """
+        network.set_network_attribute(REFERENCE_ATTRIB,
+                                      'Schaefer, Carl F et al.<br/>'
+                                      '<b>PID: the Pathway '
+                                      'Interaction Database.</b><br/>'
+                                      'Nucleic acids research vol. '
+                                      '37,Database issue (2009): '
+                                      'D674-9.<br/>'
+                                      '<a href="https://dx.doi.org/10.'
+                                      '1093%2Fnar%2Fgkn653">'
+                                      'doi:10.1093/nar/gkn653</a>')
 
     def _set_generatedby_in_network_attributes(self, network):
         """

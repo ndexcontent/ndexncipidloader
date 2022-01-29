@@ -1546,7 +1546,7 @@ class GeneFamilyExpander(NetworkUpdator):
         """
         issues = []
         for nodeid, node in network.get_nodes():
-            if 'family' not in node['n']:
+            if 'family' not in node['n'] and 'Family' not in node['n']:
                 continue
             genelist = self._gene_symbol_map.get(node['n'])
             if genelist is None:
@@ -2564,6 +2564,22 @@ class NDExNciPidLoader(object):
         cartesian_aspect = self._cartesian(my_networkx)
         network.set_opaque_aspect("cartesianLayout", cartesian_aspect)
 
+    def _set_force_directed_layout_props(self):
+        """
+
+        :return:
+        """
+        try:
+            self._py4.cytoscape_ping()
+        except Exception as e:
+            raise NDExNciPidLoaderError('Cytoscape needs to be running to run '
+                                        'layout: ' + str(self._args.layout))
+        self._py4.set_layout_properties(layout_name=self._args.layout,
+                                        properties_dict={'numIterations': 100,
+                                                         'defaultSpringCoefficient': 0.00001,
+                                                         'defaultSpringLength': 100,
+                                                         'defaultNodeMass': 3})
+
     def _apply_cytoscape_layout(self, network):
         """
         Applies Cytoscape layout on network
@@ -2606,6 +2622,7 @@ class NDExNciPidLoader(object):
         logger.info('Applying layout ' + self._args.layout +
                     ' on network with suid: ' +
                     str(net_suid) + ' in Cytoscape')
+
         res = self._py4.layout_network(layout_name=self._args.layout,
                                        network=net_suid,
                                        base_url=self._args.cyresturl)
@@ -2679,6 +2696,8 @@ class NDExNciPidLoader(object):
                               'Skipping Save to NDEx'])
             return report
 
+
+
         # apply style to network
         network.apply_style_from_network(self._template)
 
@@ -2688,6 +2707,9 @@ class NDExNciPidLoader(object):
             else:
                 if self._args.layout == '-':
                     self._args.layout = 'force-directed'
+
+                if self._args.layout == 'force-directed':
+                    self._set_force_directed_layout_props()
                 self._apply_cytoscape_layout(network)
 
         network_update_key = self._net_summaries.get(network.get_name().upper())

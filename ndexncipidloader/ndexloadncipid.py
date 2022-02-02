@@ -1353,16 +1353,18 @@ class GeneSymbolNodeNameUpdator(NetworkUpdator):
         return issues
 
 
-class GeneSymbolChecker(NetworkUpdator):
+class InvalidGeneSymbolRemover(NetworkUpdator):
     """
-    For protein nodes updates gene symbol from data
-    in gene symbol lookup dictionary
+    Removes nodes that are type protein with invalid gene symbol
+    as denoted by ``searcher`` passed in via constructor.
+    Fix for UD-1801
     """
+
     def __init__(self, searcher=GeneSymbolSearcher()):
         """
         Constructor
         """
-        super(GeneSymbolChecker, self).__init__()
+        super(InvalidGeneSymbolRemover, self).__init__()
         self._searcher = searcher
 
     def get_description(self):
@@ -1370,13 +1372,15 @@ class GeneSymbolChecker(NetworkUpdator):
         Gets description
         :return:
         """
-        return 'Checks all gene symbols to make sure they are really symbols'
+        return 'Removes nodes that are type protein with invalid gene symbol'
 
     def update(self, network):
         """
         Iterates through all nodes in network that are
-        proteins and updates node names with gene symbol
-        in mapping table.
+        proteins and removes any nodes that are type protein
+        with invalid gene symbol. Any edges connected to those
+        nodes are also removed.
+        Fix for UD-1801
 
         :param network: network to update
         :type network: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
@@ -1384,6 +1388,8 @@ class GeneSymbolChecker(NetworkUpdator):
         :rtype: list
         """
         issues = []
+        nodes_to_remove = []
+
         for nodeid, node in network.get_nodes():
             node_attr = network.get_node_attribute(nodeid, 'type')
             if node_attr is None or node_attr == (None, None):
@@ -1394,9 +1400,19 @@ class GeneSymbolChecker(NetworkUpdator):
 
             res = self._searcher.get_symbol(node['n'])
             if res is None or res == '':
-                issues.append(str(node['n']) + ' does not come back as gene symbol')
+                issues.append('Removing node (' + str(node['n']) +
+                              ') not a gene symbol')
+                nodes_to_remove.append(nodeid)
             elif res != node['n']:
-                issues.append(str(node['n']) + ' differs from symbol ' + res)
+                issues.append('Removing node (' + str(node['n']) +
+                              ') differs from symbol ' + res)
+                nodes_to_remove.append(nodeid)
+
+        node_fac = NetworkNodeFactory()
+        for nodeid in nodes_to_remove:
+            net_node = node_fac.get_network_node_from_network(net_cx=network, node_id=nodeid)
+            net_node.remove_node_from_network(net_cx=network)
+
         return issues
 
 
@@ -1600,6 +1616,60 @@ class NodeAttributeRemover(NetworkUpdator):
         issues = []
         for k, v in network.get_nodes():
             aliases = network.remove_node_attribute(k, self._attr_name)
+        return issues
+
+
+class ExcludedNodeRemover(NetworkUpdator):
+    """
+    Remove nodes matching names in ``node_names`` and
+    any associated edges
+    """
+    def __init__(self, node_names):
+        """
+        Constructor
+
+        :param node_names: Names of nodes to remove
+        :type node_names: list
+        """
+        super(ExcludedNodeRemover, self).__init__()
+        self._node_names = node_names
+
+    def get_description(self):
+        """
+        Gets description
+        :return:
+        """
+        return 'Removed Nodes (and corresponding edges) in Excluded Node list '
+
+    def update(self, network):
+        """
+        Iterates through all nodes in network that are
+        proteins and updates node names with gene symbol
+        in mapping table.
+
+        :param network: network to update
+        :type network: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
+        :return: list of issues as strings encountered
+        :rtype: list
+        """
+        if self._node_names is None:
+            return ['No nodes to remove']
+
+        issues = []
+        nodes_to_remove = []
+
+        for nodeid, node in network.get_nodes():
+
+            if node['n'] not in self._node_names:
+                continue
+            nodes_to_remove.append(nodeid)
+
+        node_fac = NetworkNodeFactory()
+        for nodeid in nodes_to_remove:
+            net_node = node_fac.get_network_node_from_network(net_cx=network,
+                                                              node_id=nodeid)
+            net_node.remove_node_from_network(net_cx=network)
+
         return issues
 
 
@@ -1871,6 +1941,114 @@ class ProteinFamilyNodeMemberRemover(NetworkUpdator):
                 name_only = entry
             node_names.append(name_only)
         return node_names, issues
+
+
+class EdgeWidthReScaler(NetworkUpdator):
+    """
+    Rescales edge width continuous mapping for network
+    """
+    def __init__(self):
+        """
+        Constructor
+        """
+        super(EdgeWidthReScaler, self).__init__()
+
+    def get_description(self):
+        """
+        Gets description
+        :return:
+        """
+        return 'Rescales relationship score edge width mapping'
+
+    def _get_edges_width_property(self, edges_default_props):
+        """
+
+        :param edges_default_props:
+        :return:
+        """
+        if 'mappings' not in edges_default_props:
+            return None
+
+        if 'EDGE_WIDTH' not in edges_default_props['mappings']:
+            return None
+
+        return edges_default_props['mappings']['EDGE_WIDTH']
+
+    def _get_edges_default_props(self, vis_props):
+        """
+
+        :param vis_props:
+        :return:
+        """
+        for prop_element in vis_props:
+            if prop_element['properties_of'] == 'edges:default':
+                return prop_element
+        return None
+
+    def _get_min_and_max_score(self, network, attr_name):
+        """
+
+        :param network:
+        :param attr_name:
+        :return:
+        """
+        min_score = None
+        max_score = None
+        for edge_id, edge_obj in network.get_edges():
+            e_attr = network.get_edge_attribute(edge_id, attr_name)
+            if e_attr is None or e_attr == (None, None):
+                continue
+            if max_score is None:
+                max_score = e_attr['v']
+                continue
+            if min_score is None:
+                min_score = e_attr['v']
+                continue
+            if e_attr['v'] > max_score:
+                max_score = e_attr['v']
+
+            if e_attr['v'] < min_score:
+                min_score = e_attr['v']
+        if min_score is None:
+            min_score = 0.0
+        if max_score is None:
+            max_score = 1.0
+        return min_score, max_score
+
+    def update(self, network):
+        """
+        Rescales EdgeWidth continuous mapping based on values in network
+
+        :param network: network to update
+        :type network: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
+        :return: list of issues as strings encountered
+        :rtype: list
+        """
+        issues = []
+        vis_props = network.get_opaque_aspect('cyVisualProperties')
+        if vis_props is None:
+            return ['No visual properties found in network']
+
+        if not isinstance(vis_props, list):
+            return ['Expected list, but got: ' + str(type(vis_props)) + ' instead']
+
+        edges_default_props = self._get_edges_default_props(vis_props)
+
+        if edges_default_props is None:
+            return ['No edges:default property group found']
+
+        edge_width_prop = self._get_edges_width_property(edges_default_props)
+
+        # get the attribute name by splitting via comma then skipping COL= prefix
+        attr_name = edge_width_prop['definition'].split(',')[0][4:]
+
+        (min_score, max_score) = self._get_min_and_max_score(network, attr_name)
+
+        # replace definition with
+        new_def = 'COL=' + attr_name + ',T=double,L=0=1.0,E=0=2.0,G=0=2.0,OV=0=' +\
+                  str(min_score) + ',L=1=10.0,E=1=10.0,G=1=1.0,OV=1=' + str(max_score)
+        edge_width_prop['definition'] = new_def
+        return []
 
 
 class INDRAAnnotator(NetworkUpdator):
@@ -2685,6 +2863,9 @@ class NDExNciPidLoader(object):
                          'node attributes to PARTICIPANT_NAME node attribute',
                          issues)
 
+        # apply style to network
+        network.apply_style_from_network(self._template)
+
         if self._networkupdators is not None:
             for updator in self._networkupdators:
                 issues = updator.update(network)
@@ -2695,11 +2876,6 @@ class NDExNciPidLoader(object):
                              ['Network has 0 nodes remaining.'
                               'Skipping Save to NDEx'])
             return report
-
-
-
-        # apply style to network
-        network.apply_style_from_network(self._template)
 
         if self._args.layout is not None:
             if self._args.layout == 'spring':
@@ -3299,9 +3475,10 @@ def main(args):
                                             'without INDRA add --skipindra '
                                             'flag')
             updators.append(INDRAAnnotator(min_evidence=theargs.minindraevidence))
+            updators.append(EdgeWidthReScaler())
 
         if theargs.skipchecker is False:
-            updators.append(GeneSymbolChecker(searcher=searcher))
+            updators.append(InvalidGeneSymbolRemover(searcher=searcher))
 
         loader = NDExNciPidLoader(theargs,
                                   netattribfac=nafac,

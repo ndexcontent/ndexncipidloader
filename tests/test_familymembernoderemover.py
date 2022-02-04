@@ -10,6 +10,7 @@ from ndex2.nice_cx_network import NiceCXNetwork
 import ndex2
 
 from ndexncipidloader.ndexloadncipid import ProteinFamilyNodeMemberRemover
+from ndexncipidloader.ndexloadncipid import DirectedEdgeSetter
 from ndexncipidloader.network import NetworkEdgeFactory
 from ndexncipidloader.network import NetworkEdge
 from ndexncipidloader.network import Attribute
@@ -92,7 +93,8 @@ class TestProteinFamilyNodeMemberRemover(unittest.TestCase):
                          interaction='activates')
         res = remover._get_edge_dict([ne])
         self.assertEqual(1, len(res))
-        key = 's=3, t=2, i=activates, directed=False'
+        key = 's=3, t=2, i=activates, ' + DirectedEdgeSetter.DIRECTED_ATTRIB +'=False'
+
         self.assertTrue(key in res)
         self.assertEqual(1, len(res[key]))
         self.assertTrue(ne.get_source_node_id() ==
@@ -102,12 +104,12 @@ class TestProteinFamilyNodeMemberRemover(unittest.TestCase):
         # directed is same value
         ne_one = NetworkEdge(source_node_id=1, target_node_id=2,
                              interaction='activates',
-                             attributes=[Attribute(name='directed',
+                             attributes=[Attribute(name=DirectedEdgeSetter.DIRECTED_ATTRIB,
                                                    value=False,
                                                    data_type='boolean')])
         ne_two = NetworkEdge(source_node_id=2, target_node_id=1,
                              interaction='activates',
-                             attributes=[Attribute(name='directed',
+                             attributes=[Attribute(name=DirectedEdgeSetter.DIRECTED_ATTRIB,
                                                    value=False,
                                                    data_type='boolean')])
         res = remover._get_edge_dict([ne_one, ne_two, ne])
@@ -117,7 +119,8 @@ class TestProteinFamilyNodeMemberRemover(unittest.TestCase):
         self.assertEqual(1, len(res[key]))
         self.assertTrue(ne.get_source_node_id() ==
                         res[key][0].get_source_node_id())
-        mkey = 's=1, t=2, i=activates, directed=False'
+        mkey = 's=1, t=2, i=activates, ' +\
+               DirectedEdgeSetter.DIRECTED_ATTRIB + '=False'
         self.assertTrue(mkey in res)
         self.assertEqual(2, len(res[mkey]))
 

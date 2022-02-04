@@ -75,7 +75,7 @@ class TestINDRAAnnotator(unittest.TestCase):
         edge_one = net.create_edge(edge_source=node_one,
                                    edge_target=node_two)
         net.set_edge_attribute(edge=edge_one, attribute_name=Indra.SOURCE,
-                               values='NCI PID')
+                               values='NCI-PID')
         edge_two = net.create_edge(edge_source=node_one,
                                    edge_target=node_two)
 
@@ -83,9 +83,9 @@ class TestINDRAAnnotator(unittest.TestCase):
                                      edge_target=node_three)
 
         edge_four = net.create_edge(edge_source=node_one,
-                                     edge_target=node_three)
+                                    edge_target=node_three)
         net.set_edge_attribute(edge=edge_four, attribute_name=Indra.SOURCE,
-                               values='NCI PID')
+                               values='NCI-PID')
 
         edge_five = net.create_edge(edge_source=node_three,
                                      edge_target=node_one)
@@ -168,10 +168,6 @@ class TestINDRAAnnotator(unittest.TestCase):
         # reverse directed and both directed, reverse are true
         edge = NetworkEdge(edge_id=1, source_node_id=2, target_node_id=3)
         res = annotator._update_interaction_attribute(edge=edge,
-                                                      name='SOURCE => TARGET',
-                                                      interaction='breaks',
-                                                      citations=['pubmed:1',
-                                                                 'pubmed:2'],
                                                       update_directed=True,
                                                       update_reversedirected=True)
 
@@ -186,12 +182,6 @@ class TestINDRAAnnotator(unittest.TestCase):
         rdir_attr = edge.get_attribute_by_name(Indra.REVERSE_DIRECTED)
         self.assertEqual(True, rdir_attr.get_value())
         self.assertEqual('boolean', rdir_attr.get_data_type())
-
-        # check interaction
-        int_attr = edge.get_attribute_by_name('SOURCE => TARGET')
-        self.assertEqual('list_of_string', int_attr.get_data_type())
-        self.assertTrue('breaks(' in
-                         int_attr.get_value()[0])
 
     def test_update_interaction_attribute_on_undirected_edge(self):
         annotator = INDRAAnnotator()
@@ -201,16 +191,12 @@ class TestINDRAAnnotator(unittest.TestCase):
         edge = NetworkEdge(edge_id=1, source_node_id=2, target_node_id=3)
         edge.set_attributes([Attribute(name=Indra.DIRECTED, value=False,
                                       data_type='boolean'),
-                             Attribute(name='SOURCE - TARGET',
-                                       value=['blah(1)'],
-                                       data_type='list_of_string'),
+                             Attribute(name=Indra.RELATIONSHIPS,
+                                       value='All Evidences(1)',
+                                       data_type='string'),
                              Attribute(name=Indra.REVERSE_DIRECTED,
                                        value=False, data_type='boolean')])
         res = annotator._update_interaction_attribute(edge=edge,
-                                                      name='SOURCE => TARGET',
-                                                      interaction='breaks',
-                                                      citations=['pubmed:1',
-                                                                 'pubmed:2'],
                                                       update_directed=True,
                                                       update_reversedirected=True)
 
@@ -225,17 +211,6 @@ class TestINDRAAnnotator(unittest.TestCase):
         rdir_attr = edge.get_attribute_by_name(Indra.REVERSE_DIRECTED)
         self.assertEqual(True, rdir_attr.get_value())
         self.assertEqual('boolean', rdir_attr.get_data_type())
-
-        # check interaction
-        int_attr = edge.get_attribute_by_name('SOURCE => TARGET')
-        self.assertEqual('list_of_string', int_attr.get_data_type())
-        self.assertTrue('breaks(' in
-                         int_attr.get_value()[0])
-
-        int_attr = edge.get_attribute_by_name('SOURCE - TARGET')
-        self.assertEqual('list_of_string', int_attr.get_data_type())
-        self.assertEqual(['blah(1)'],
-                         int_attr.get_value())
 
     def test_get_nci_pid_edge_ids(self):
         annotator = INDRAAnnotator()
@@ -249,12 +224,12 @@ class TestINDRAAnnotator(unittest.TestCase):
                                    edge_target=node_two)
         net.set_edge_attribute(edge=edge_one,
                                attribute_name=Indra.SOURCE,
-                               values='NCI PID')
+                               values='NCI-PID')
         edge_two = net.create_edge(edge_source=node_one,
                                    edge_target=node_three)
         net.set_edge_attribute(edge=edge_two,
                                attribute_name=Indra.SOURCE,
-                               values='NCI PID')
+                               values='NCI-PID')
 
         edge_three = net.create_edge(edge_source=node_two,
                                      edge_target=node_three)

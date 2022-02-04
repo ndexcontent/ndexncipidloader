@@ -15,6 +15,7 @@ from ndexncipidloader import ndexloadncipid
 from ndexncipidloader.ndexloadncipid import DirectedEdgeSetter
 from ndex2.nice_cx_network import NiceCXNetwork
 
+
 class TestDirectedEdgeSetter(unittest.TestCase):
     """Tests for `DirectedEdgeSetter` class."""
 
@@ -26,7 +27,9 @@ class TestDirectedEdgeSetter(unittest.TestCase):
 
     def test_with_none_as_network(self):
         setter = DirectedEdgeSetter()
-        self.assertTrue('Sets directed' in setter.get_description())
+        self.assertTrue('Sets ' +
+                        DirectedEdgeSetter.DIRECTED_ATTRIB in
+                        setter.get_description())
         self.assertEqual(['Network is None'],
                          setter.update(None))
 

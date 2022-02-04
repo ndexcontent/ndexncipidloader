@@ -7,25 +7,22 @@ History
 
 * Added link to NCI PID publication to each network.
 
-* INDRA annotation is now performed on all networks with 100 or less nodes
+* INDRA annotation is now performed on all networks with 200 or less nodes
   if INDRA package is found on machine. Can be skipped with ``--skipindra`` flag.
 
-* Added ``reverse directed`` edge attribute needed for INDRA annotations.
+* Added ``__reverse_directed`` edge attribute needed for INDRA annotations.
 
-* Switched style to color edges based on source. Black for NCI PID, blue for INDRA,
-  and orange for both.
+* Switched style to color edges based on source. Grey for NCI PID, blue for INDRA,
+  and green for both.
 
-* Added ``edge source`` edge attribute to denote source of edge. Can be one of
+* Added ``__edge_source`` edge attribute to denote source of edge. Can be one of
   the following: NCI PID, INDRA, INDRA + NCI PID.
 
-* Added ``SOURCE => TARGET`` edge attribute which contains information about
-  directed interaction(s).
-
-* Added ``TARGET => SOURCE`` edge attribute which contains information about
-  reverse directed interaction(s).
-
-* Added ``SOURCE - TARGET`` edge attribute which contains about non directional
+* Added ``Relationships`` edge attribute which contains information about
   interaction(s).
+
+* Added ``__relationship_score`` which contains natual log of total evidence count
+  from INDRA for edge.
 
 5.0.1 (2021-05-25)
 -----------------------

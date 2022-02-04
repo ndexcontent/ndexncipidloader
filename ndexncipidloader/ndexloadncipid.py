@@ -2374,6 +2374,8 @@ class INDRAAnnotator(NetworkUpdator):
             if rdir_attr is None:
                 rdir_attr = Attribute(name=Indra.DIRECTED, value=True,
                                       data_type='boolean')
+                if edge.get_attributes() is None:
+                    edge.set_attributes([])
                 edge.get_attributes().append(rdir_attr)
             else:
                 rdir_attr.set_value(True)
@@ -2383,6 +2385,8 @@ class INDRAAnnotator(NetworkUpdator):
             if rdir_attr is None:
                 rdir_attr = Attribute(name=Indra.REVERSE_DIRECTED, value=True,
                                       data_type='boolean')
+                if edge.get_attributes() is None:
+                    edge.set_attributes([])
                 edge.get_attributes().append(rdir_attr)
             else:
                 rdir_attr.set_value(True)

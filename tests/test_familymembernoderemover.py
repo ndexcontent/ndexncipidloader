@@ -124,10 +124,6 @@ class TestProteinFamilyNodeMemberRemover(unittest.TestCase):
         self.assertTrue(mkey in res)
         self.assertEqual(2, len(res[mkey]))
 
-
-
-
-
     def test_update_no_family_members(self):
         net = NiceCXNetwork()
 

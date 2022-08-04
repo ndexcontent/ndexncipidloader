@@ -42,6 +42,10 @@ INDRA_LOADED = False
 try:
     from ndexindraloader.indra import Indra
     from ndexindraloader.exceptions import NDExIndraLoaderError
+    from ndexindraloader.indra import SelfLoopStatementFilter
+    from ndexindraloader.indra import IncorrectStatementFilter
+    from ndexindraloader.indra import SingleReadingStatementFilter
+    from ndexindraloader.indra import SparserComplexStatementFilter
     INDRA_LOADED = True
 except ImportError as ie:
     pass
@@ -306,8 +310,14 @@ def _parse_arguments(desc, args):
                              'members of protein families')
     parser.add_argument('--skipindra', action='store_true',
                         help='If set, skip INDRA annotation')
-    parser.add_argument('--minindraevidence', type=int, default=3,
-                        help='Minimum INDRA evidence count for INDRA statement.')
+    parser.add_argument('--indracachedir',
+                        help='NOT IMPLEMENTED YET!!!!. If set, code will look in this directory for '
+                             'previous output of Indra REST call for a given '
+                             'network and use that instead of making the '
+                             'call. If no output exists, the REST query '
+                             'is made and the results are saved here.')
+    parser.add_argument('--curations',
+                        help='INDRA curations json file')
     parser.add_argument('--getfamilies', action='store_true',
                         help='If set, code examines owl files and generates '
                              'mapping of protein families')
@@ -2077,15 +2087,20 @@ class INDRAAnnotator(NetworkUpdator):
     Annotates networks with edges from INDRA
 
     """
-    def __init__(self, min_evidence=1):
+    def __init__(self, curations=None,
+                 indracachedir=None):
         """
         Constructor
         """
         super(INDRAAnnotator, self).__init__()
         if INDRA_LOADED is False:
             raise NDExNciPidLoaderError('ndexindraloader package not found')
-        self._indraobj = Indra()
-        self._min_evidence = min_evidence
+        stmtfilters = [SelfLoopStatementFilter(),
+                       IncorrectStatementFilter(self._get_curation_list(curations)),
+                       SingleReadingStatementFilter(),
+                       SparserComplexStatementFilter()]
+        self._indraobj = Indra(stmtfilters=stmtfilters)
+        self._indracachedir = indracachedir
 
     def get_description(self):
         """
@@ -2110,8 +2125,7 @@ class INDRAAnnotator(NetworkUpdator):
                     'exceeds 200 nodes and cannot be INDRA annotated']
         try:
             self._indraobj.annotate_network(net_cx=network, netprefix='',
-                                            source_value='NCI-PID',
-                                            min_evidence_cnt=self._min_evidence)
+                                            source_value='NCI-PID')
         except NDExIndraLoaderError as ne:
             return [str(ne)]
 
@@ -2138,6 +2152,28 @@ class INDRAAnnotator(NetworkUpdator):
         issues.extend(self._update_existing_nci_pid_edges(net_cx=network,
                                                           nci_edges=remain_nci_pid_edges))
         return issues
+
+    def _get_curation_list(self, curation):
+        """
+
+        :param curation:
+        :return:
+        """
+        with open(curation, 'r') as f:
+            return json.load(f)
+
+    def _create_indracache(self):
+        """
+
+        :return:
+        """
+        if self._indracachedir is not None:
+            cachedir = os.path.abspath(self._indracachedir)
+            if not os.path.isdir(cachedir):
+                logger.debug('Creating indra cache directory')
+                os.makedirs(cachedir, mode=0o755)
+            return cachedir
+        return None
 
     def _update_existing_nci_pid_edges(self, net_cx=None,
                                        nci_edges=None):
@@ -3500,7 +3536,8 @@ def main(args):
                                             'found. To run this loader '
                                             'without INDRA add --skipindra '
                                             'flag')
-            updators.append(INDRAAnnotator(min_evidence=theargs.minindraevidence))
+            updators.append(INDRAAnnotator(curations=theargs.curations,
+                                           indracachedir=theargs.indracachedir))
             updators.append(EdgeWidthReScaler())
 
         if theargs.skipchecker is False:

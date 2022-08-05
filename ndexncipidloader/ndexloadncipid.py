@@ -310,6 +310,16 @@ def _parse_arguments(desc, args):
                              'members of protein families')
     parser.add_argument('--skipindra', action='store_true',
                         help='If set, skip INDRA annotation')
+    parser.add_argument('--skipindrasparser', action='store_true',
+                        help='If set, skip INDRA sparser reading statement filter')
+    parser.add_argument('--skipindrasingle', action='store_true',
+                        help='If set, skip INDRA single reading statement filter')
+    parser.add_argument('--skipindraincorrect', action='store_true',
+                        help='If set, skip INDRA incorrect statement filter')
+    parser.add_argument('--indraremovenci', action='store_true',
+                        help='If set, removes NCI PID edges (and orphan nodes) '
+                             'that do NOT have corresponding '
+                             'INDRA edges. Ignored if --skipindra is set')
     parser.add_argument('--indracachedir',
                         help='NOT IMPLEMENTED YET!!!!. If set, code will look in this directory for '
                              'previous output of Indra REST call for a given '
@@ -826,6 +836,44 @@ class NetworkUpdator(object):
         :return:
         """
         raise NotImplementedError('subclasses should implement')
+
+
+class RemoveOrphanNodeUpdater(NetworkUpdator):
+    """
+    Removes orphan nodes from network
+    """
+    def __init__(self):
+        """
+        Constructor
+        """
+        super(RemoveOrphanNodeUpdater, self).__init__()
+
+    def get_description(self):
+        """
+        Outputs description of what update() does
+
+        :return:
+        """
+        return 'Removes orphan nodes from network'
+
+    def update(self, network):
+        """
+        Looks for any edge less aka orphan nodes and removes
+        them from the network
+
+        :param network:
+        :return:
+        """
+        node_fac = NetworkNodeFactory()
+        nodes_to_remove = set()
+        for node_id, raw_node_dict in network.get_nodes():
+            node = node_fac.get_network_node_from_network(net_cx=network, node_id=node_id)
+            if node.get_degree(net_cx=network) == 0:
+                nodes_to_remove.add(node)
+
+        for node in nodes_to_remove:
+            node.remove_node_from_network(net_cx=network)
+        return []
 
 
 class UniProtToGeneSymbolUpdater(NetworkUpdator):
@@ -2087,20 +2135,19 @@ class INDRAAnnotator(NetworkUpdator):
     Annotates networks with edges from INDRA
 
     """
-    def __init__(self, curations=None,
-                 indracachedir=None):
+    def __init__(self,
+                 indracachedir=None,
+                 stmtfilters=None,
+                 remove_ncipid_edges=False):
         """
         Constructor
         """
         super(INDRAAnnotator, self).__init__()
         if INDRA_LOADED is False:
             raise NDExNciPidLoaderError('ndexindraloader package not found')
-        stmtfilters = [SelfLoopStatementFilter(),
-                       IncorrectStatementFilter(self._get_curation_list(curations)),
-                       SingleReadingStatementFilter(),
-                       SparserComplexStatementFilter()]
         self._indraobj = Indra(stmtfilters=stmtfilters)
         self._indracachedir = indracachedir
+        self._remove_ncipid_edges = remove_ncipid_edges
 
     def get_description(self):
         """
@@ -2147,20 +2194,21 @@ class INDRAAnnotator(NetworkUpdator):
         # find any remaining nci pid edges
         remain_nci_pid_edges = self._get_nci_pid_edge_objs(network=network)
 
-        # update attributes on nci pid edges to
-        # align with INDRA annotated edges
-        issues.extend(self._update_existing_nci_pid_edges(net_cx=network,
-                                                          nci_edges=remain_nci_pid_edges))
+        if self._remove_ncipid_edges is True:
+            net_edge_fac = NetworkEdgeFactory()
+            nci_edges_to_toss = []
+            for edge_id in remain_nci_pid_edges:
+                ne = net_edge_fac.get_network_edge_from_network(net_cx=network,
+                                                                edge_id=edge_id[0])
+                nci_edges_to_toss.append(ne)
+            self._remove_edges_from_network(net_cx=network, edge_lists=[nci_edges_to_toss])
+            # need to remove orphan nodes too now
+        else:
+            # update attributes on nci pid edges to
+            # align with INDRA annotated edges
+            issues.extend(self._update_existing_nci_pid_edges(net_cx=network,
+                                                              nci_edges=remain_nci_pid_edges))
         return issues
-
-    def _get_curation_list(self, curation):
-        """
-
-        :param curation:
-        :return:
-        """
-        with open(curation, 'r') as f:
-            return json.load(f)
 
     def _create_indracache(self):
         """
@@ -3432,6 +3480,16 @@ class FtpDataDownloader(object):
         logger.info('Downloaded ' + str(counter) + ' files')
 
 
+def _get_curation_list(curation):
+    """
+
+    :param curation:
+    :return:
+    """
+    with open(curation, 'r') as f:
+        return json.load(f)
+
+
 def main(args):
     """
     Main entry point for program
@@ -3536,8 +3594,20 @@ def main(args):
                                             'found. To run this loader '
                                             'without INDRA add --skipindra '
                                             'flag')
-            updators.append(INDRAAnnotator(curations=theargs.curations,
-                                           indracachedir=theargs.indracachedir))
+
+            stmtfilters = [SelfLoopStatementFilter()]
+            if theargs.skipindrasparser is False:
+                stmtfilters.append(SparserComplexStatementFilter())
+            if theargs.skipindrasingle is False:
+                stmtfilters.append(SingleReadingStatementFilter())
+            if theargs.skipindraincorrect is False:
+                stmtfilters.append(IncorrectStatementFilter(_get_curation_list(theargs.curations)))
+
+            updators.append(INDRAAnnotator(stmtfilters=stmtfilters,
+                                           indracachedir=theargs.indracachedir,
+                                           remove_ncipid_edges=theargs.indraremovenci))
+            if theargs.indraremovenci is True:
+                updators.append(RemoveOrphanNodeUpdater())
             updators.append(EdgeWidthReScaler())
 
         if theargs.skipchecker is False:

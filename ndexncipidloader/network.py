@@ -258,6 +258,18 @@ class NetworkNode(object):
                 return attr
         return None
 
+    def get_degree(self, net_cx=None):
+        """
+        Gets count of edges connected to node
+        :param net_cx:
+        :return:
+        """
+        edges = self._nef.get_all_edges_connected_to_node(net_cx=net_cx,
+                                                          node_id=self._node_id)
+        if edges is None:
+            return 0
+        return len(edges)
+
     def remove_node_from_network(self, net_cx=None):
         """
         Removes node and any attributes on that node

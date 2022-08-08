@@ -861,6 +861,10 @@ class NetworkEdgeFactory(object):
         Gets all edges where both ends of edge point to nodes
         in **node_id_list** list
 
+        .. note::
+
+            This will return self loop edges
+
         :param net_cx: Network to get edges from
         :type net_cx: :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
         :param node_id_list: Node Ids as ints

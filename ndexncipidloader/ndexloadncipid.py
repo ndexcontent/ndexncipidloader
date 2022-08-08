@@ -2310,7 +2310,17 @@ class INDRAAnnotator(NetworkUpdator):
                 # is not anything to merge
                 continue
 
-            edge_lists.append(c_edges)
+            no_self_loop_c_edges = []
+            for c_e in c_edges:
+                # Fix for UD-2263 the get_interconnected_edges will
+                # return self loop edges and we do not want to merge those
+                # here
+                if c_e.get_source_node_id() == c_e.get_target_node_id():
+                    continue
+                no_self_loop_c_edges.append(c_e)
+
+            edge_lists.append(no_self_loop_c_edges)
+
         return edge_lists
 
     def _split_edges_into_indra_and_nci_pid(self, edges=None):

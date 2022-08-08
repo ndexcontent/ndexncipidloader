@@ -46,6 +46,7 @@ try:
     from ndexindraloader.indra import IncorrectStatementFilter
     from ndexindraloader.indra import SingleReadingStatementFilter
     from ndexindraloader.indra import SparserComplexStatementFilter
+    from ndexindraloader.indra import MedscanStatementFilter
     INDRA_LOADED = True
 except ImportError as ie:
     pass
@@ -316,8 +317,8 @@ def _parse_arguments(desc, args):
                         help='If set, skip INDRA single reading statement filter')
     parser.add_argument('--skipindraincorrect', action='store_true',
                         help='If set, skip INDRA incorrect statement filter')
-    parser.add_argument('--indraremovenci', action='store_true',
-                        help='If set, removes NCI PID edges (and orphan nodes) '
+    parser.add_argument('--indrakeepnci', action='store_true',
+                        help='If set, keeps NCI PID edges (and orphan nodes) '
                              'that do NOT have corresponding '
                              'INDRA edges. Ignored if --skipindra is set')
     parser.add_argument('--indracachedir',
@@ -3603,10 +3604,14 @@ def main(args):
             if theargs.skipindraincorrect is False:
                 stmtfilters.append(IncorrectStatementFilter(_get_curation_list(theargs.curations)))
 
+            # just going to toss these no matter what cause
+            # the evidence is private. UD-2091
+            stmtfilters.append(MedscanStatementFilter())
+
             updators.append(INDRAAnnotator(stmtfilters=stmtfilters,
                                            indracachedir=theargs.indracachedir,
-                                           remove_ncipid_edges=theargs.indraremovenci))
-            if theargs.indraremovenci is True:
+                                           remove_ncipid_edges=not theargs.indrakeepnci))
+            if theargs.indrakeepnci is False:
                 updators.append(RemoveOrphanNodeUpdater())
             updators.append(EdgeWidthReScaler())
 

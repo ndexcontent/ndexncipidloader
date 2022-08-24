@@ -2172,7 +2172,7 @@ class INDRAAnnotator(NetworkUpdator):
             return [str(num_nodes) +
                     'exceeds 200 nodes and cannot be INDRA annotated']
         try:
-            self._indraobj.annotate_network(net_cx=network, netprefix='',
+            self._indraobj.annotate_network(net_cx=network, netprefix='v2 - ',
                                             source_value='NCI-PID')
         except NDExIndraLoaderError as ne:
             return [str(ne)]

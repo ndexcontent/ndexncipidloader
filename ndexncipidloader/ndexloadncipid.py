@@ -328,7 +328,10 @@ def _parse_arguments(desc, args):
                              'call. If no output exists, the REST query '
                              'is made and the results are saved here.')
     parser.add_argument('--curations',
-                        help='INDRA curations json file')
+                        help='INDRA curations json file OR api key to download curations'
+                             'from INDRA service url set via --curationsurl')
+    parser.add_argument('--curationsurl', default='https://db.indra.bio/curation/list',
+                        help='URL to download curations from INDRA')
     parser.add_argument('--getfamilies', action='store_true',
                         help='If set, code examines owl files and generates '
                              'mapping of protein families')
@@ -348,14 +351,26 @@ def _parse_arguments(desc, args):
                              'flag is set, in which case this '
                              'script assumes the '
                              '*.sif files already exist')
-    parser.add_argument('--layout', default='-',
+    parser.add_argument('--layout', default='cdqforcelayout',
                         help='Specifies layout '
                              'algorithm to run. If Cytoscape is running '
                              'and py4cytoscape is loaded any layout from '
                              'Cytoscape can be used. If "-" is passed in '
                              'force-directed from Cytoscape will '
                              'be used. If no Cytoscape is available, '
-                             '"spring" from networkx is supported')
+                             '"spring" from networkx is supported. Also '
+                             'cdqforcelayout available from cytolayouts.ucsd.edu/cd/ service')
+    parser.add_argument('--cytolayouturl', default='http://cytolayouts.ucsd.edu/cd/communitydetection/v1',
+                        help='URL of Cytoscape Layout Service. Used to run cdqforce layout if specified'
+                             ' via --layout parameter')
+    parser.add_argument('--cytolayoutargs', default='{"--rounds": "20",'
+                                                    '"--node_size": "50",'
+                                                    '"--sparsity": "30", "--center_attractor_scale": "5"}',
+                        help='Arguments (as json) to pass into cytoscape layout service algorithm. '
+                             'NOTE: arguments must be a json fragment of format {KEY: VALUE} where both '
+                             'KEY and VALUE are strings '
+                             'Default '
+                             'are parameters for cdqforcelayout. ')
     parser.add_argument('--cyresturl',
                         default=DEFAULT_CYREST_API,
                         help='URL of CyREST API. Default value '
@@ -2939,6 +2954,60 @@ class NDExNciPidLoader(object):
         layout_aspect = self._ndexextra.extract_layout_aspect_from_cx(input_cx_file=tmp_cx_file)
         network.set_opaque_aspect('cartesianLayout', layout_aspect)
 
+    def _apply_cytolayoutservice_layout(self, network, layoutname=None,
+                                        layoutargs=None):
+        """
+
+        :param network:
+        :param layoutname:
+        :param layoutargs:
+        :return:
+        """
+
+        payload = {'algorithm': layoutname,
+                   'data': network.to_cx()}
+        if layoutargs is not None:
+            payload['customParameters'] = layoutargs
+        res = requests.post(self._args.cytolayouturl,
+                            headers={'Content-Type': 'application/json',
+                                     'Accept': 'application/json'},
+                            json=payload, timeout=30)
+        if res.status_code != 202:
+            raise NDExNciPidLoaderError('Error submitting layout task ' +
+                                        str(res.status_code) + ' : ' + str(res.text))
+        task_id = res.json()['id']
+        complete = False
+        while complete is False:
+            logger.debug('Checking status of task: ' + str(task_id))
+            res = requests.get(self._args.cytolayouturl + '/' + str(task_id) + '/status',
+                               headers={'Content-Type': 'application/json',
+                                        'Accept': 'application/json'})
+            if res.status_code != 200:
+                logger.debug('Request came back with error, '
+                             'sleeping 1 second and trying '
+                             'again : ' + str(res.text))
+                time.sleep(1)
+                continue
+
+            status_dict = res.json()
+            if status_dict['progress'] == 100:
+                if status_dict['status'] != 'complete':
+                    raise NDExNciPidLoaderError('Task failed: ' + str(status_dict))
+                break
+            time.sleep(1)
+
+        # if we got here then the task completed successfully
+        # grab the result and add to cartesianLayout aspect of
+        # nice_cx and write that out
+        res = requests.get(self._args.cytolayouturl + '/' + str(task_id),
+                           headers={'Content-Type': 'application/json',
+                                    'Accept': 'application/json'})
+
+        if res.status_code != 200:
+            raise NDExNciPidLoaderError('Error getting layout coordinates')
+
+        network.set_opaque_aspect('cartesianLayout', res.json()['result'])
+
     def _process_sif(self, file_name):
         """
         Processes sif file
@@ -3000,6 +3069,12 @@ class NDExNciPidLoader(object):
         if self._args.layout is not None:
             if self._args.layout == 'spring':
                 self._apply_simple_spring_layout(network)
+            elif self._args.layout == 'cdqforcelayout':
+                largs = None
+                if self._args.cytolayoutargs is not None:
+                    largs = json.loads(self._args.cytolayoutargs)
+                self._apply_cytolayoutservice_layout(network, layoutname=self._args.layout,
+                                                     layoutargs=largs)
             else:
                 if self._args.layout == '-':
                     self._args.layout = 'force-directed'
@@ -3491,14 +3566,25 @@ class FtpDataDownloader(object):
         logger.info('Downloaded ' + str(counter) + ' files')
 
 
-def _get_curation_list(curation):
+def _get_curation_list(curation, curationurl=None):
     """
 
     :param curation:
     :return:
     """
-    with open(curation, 'r') as f:
-        return json.load(f)
+    if os.path.isfile(curation):
+        with open(curation, 'r') as f:
+            return json.load(f)
+
+    # curation is not a file, assume it is an api key and download
+    # curations from curationurl and return as dict
+    resp = requests.get(curationurl + '?api_key=' + str(curation))
+    if resp.status_code != 200:
+        raise NDExNciPidLoaderError('Received ' + str(resp.status_code) +
+                                    ' status code trying '
+                                    'to get curations: ' +
+                                    str(resp.text))
+    return resp.json()
 
 
 def main(args):
@@ -3612,7 +3698,8 @@ def main(args):
             if theargs.skipindrasingle is False:
                 stmtfilters.append(SingleReadingStatementFilter())
             if theargs.skipindraincorrect is False:
-                stmtfilters.append(IncorrectStatementFilter(_get_curation_list(theargs.curations)))
+                stmtfilters.append(IncorrectStatementFilter(_get_curation_list(theargs.curations,
+                                                                               curationurl=theargs.curationsurl)))
 
             # just going to toss these no matter what cause
             # the evidence is private. UD-2091

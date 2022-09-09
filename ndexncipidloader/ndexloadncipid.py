@@ -363,14 +363,16 @@ def _parse_arguments(desc, args):
     parser.add_argument('--cytolayouturl', default='http://cytolayouts.ucsd.edu/cd/communitydetection/v1',
                         help='URL of Cytoscape Layout Service. Used to run cdqforce layout if specified'
                              ' via --layout parameter')
-    parser.add_argument('--cytolayoutargs', default='{"--rounds": "20",'
-                                                    '"--node_size": "50",'
-                                                    '"--sparsity": "30", "--center_attractor_scale": "5"}',
-                        help='Arguments (as json) to pass into cytoscape layout service algorithm. '
-                             'NOTE: arguments must be a json fragment of format {KEY: VALUE} where both '
-                             'KEY and VALUE are strings '
-                             'Default '
-                             'are parameters for cdqforcelayout. ')
+    parser.add_argument('--cytolayoutargs',
+                        default='{"--rounds": "20",'
+                                '"--node_size": "70",'
+                                '"--sparsity": "30", '
+                                '"--center_attractor_scale": "5"}',
+                        help='Arguments (as json) to pass into cytoscape '
+                             'layout service algorithm. NOTE: arguments must '
+                             'be a json fragment of format {KEY: VALUE} '
+                             'where both KEY and VALUE are strings Default '
+                             'are parameters for cdqforcelayout.')
     parser.add_argument('--cyresturl',
                         default=DEFAULT_CYREST_API,
                         help='URL of CyREST API. Default value '

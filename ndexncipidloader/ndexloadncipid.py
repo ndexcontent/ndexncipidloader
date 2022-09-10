@@ -155,6 +155,8 @@ stored within this package
 COMPLETE_INTERACTION_NAME = 'NCI PID - Complete Interactions'
 
 
+INDRA_SUFFIX = ' (v2.0)'
+
 def get_package_dir():
     """
     Gets directory where package is installed
@@ -205,7 +207,6 @@ def get_style(indrastyle=False):
     else:
         thestyle = INDRASTYLE
     return os.path.join(get_package_dir(), thestyle)
-
 
 
 def get_gene_symbol_mapping():
@@ -262,8 +263,10 @@ def _parse_arguments(desc, args):
                              'from network, one per line',
                         default=get_excluded_nodes_file())
     parser.add_argument('--iconurl',
-                        help='Sets network attribute value __iconurl ',
-                        default=ICON_URL)
+                        help='If set, this is used network '
+                             'attribute value __iconurl '
+                             'overriding __iconurl attribute in '
+                             'style network')
     parser.add_argument('--networkattrib',
                         help='Use alternate Tab delimited file containing '
                              'PID Pathway Name, reviewed by, '
@@ -278,7 +281,9 @@ def _parse_arguments(desc, args):
                         choices=['none', 'meta', 'all'],
                         help='Sets how new networks are indexed')
     parser.add_argument('--disableshowcase', default=False, action='store_true',
-                        help='If set, new networks are NOT showcased')
+                        help='If set, new networks are NOT showcased. '
+                             'NOTE: Only used if --skipindra is set. '
+                             'INDRA networks are never showcased')
     parser.add_argument('--style',
                         help='Path to NDEx CX file to use for styling '
                              'networks. If unset either style.cx or indrastyle.cx '
@@ -2183,14 +2188,10 @@ class INDRAAnnotator(NetworkUpdator):
         :return: list of issues as strings encountered
         :rtype: list
         """
-        # annotate the network with INDRA edges if its less then 100 nodes
-        num_nodes = len(network.get_nodes())
-        if num_nodes > 200:
-            return [str(num_nodes) +
-                    'exceeds 200 nodes and cannot be INDRA annotated']
         try:
-            self._indraobj.annotate_network(net_cx=network, netprefix='v2 - ',
+            self._indraobj.annotate_network(net_cx=network, netprefix='',
                                             source_value='NCI-PID')
+            network.set_name(network.get_name() + INDRA_SUFFIX)
         except NDExIndraLoaderError as ne:
             return [str(ne)]
 
@@ -2493,14 +2494,7 @@ class INDRAAnnotator(NetworkUpdator):
 
         # as Requested by Dexter on 1/27/22 do NOT add NCI PID interaction to
         # Relationships edge attribute
-        #
-        # int_attr = edge.get_attribute_by_name(name)
-        # if int_attr is None:
-        #    int_attr = Attribute(name=name, value='',
-        #                         data_type='string')
-        #    if edge.get_attributes() is None:
-        #        edge.set_attributes([])
-        #    edge.get_attributes().append(int_attr)
+
 
         if update_directed is True:
             rdir_attr = edge.get_attribute_by_name(Indra.DIRECTED)
@@ -2526,11 +2520,6 @@ class INDRAAnnotator(NetworkUpdator):
 
         # as Requested by Dexter on 1/27/22 do NOT add NCI PID interaction to
         # Relationships edge attribute
-        #
-        # int_str = interaction + '('
-        # int_str += self._get_nci_citations_as_single_ahref(citations=citations)
-        # int_str += ')<br/>'
-        # int_attr.set_value(int_attr.get_value() + int_str)
 
         # increment raw evidence count to include NCI PID citations
 
@@ -2648,7 +2637,11 @@ class NDExNciPidLoader(object):
             self._indexlevel = 'ALL'
 
         try:
-            self._showcase = not args.disableshowcase
+            # UD-2299 never showcase INDRA networks
+            if args.skipindra is False:
+                self._showcase = False
+            else:
+                self._showcase = not args.disableshowcase
         except AttributeError:
             logger.error('showcase was not found in args. Setting value to True')
             self._showcase = True
@@ -3075,8 +3068,12 @@ class NDExNciPidLoader(object):
                 largs = None
                 if self._args.cytolayoutargs is not None:
                     largs = json.loads(self._args.cytolayoutargs)
-                self._apply_cytolayoutservice_layout(network, layoutname=self._args.layout,
-                                                     layoutargs=largs)
+                try:
+                    self._apply_cytolayoutservice_layout(network, layoutname=self._args.layout,
+                                                         layoutargs=largs)
+                except NDExNciPidLoaderError as ne:
+                    report.addissues('Layout', ['layout failed, falling back to spring: ' + str(ne)])
+                    self._apply_simple_spring_layout(network)
             else:
                 if self._args.layout == '-':
                     self._args.layout = 'force-directed'
@@ -3086,6 +3083,10 @@ class NDExNciPidLoader(object):
                 self._apply_cytoscape_layout(network)
 
         network_update_key = self._net_summaries.get(network.get_name().upper())
+
+        orig_network_key = None
+        if self._args.skipindra is False:
+            orig_network_key = self._net_summaries.get(network.get_name().upper()[:-len(INDRA_SUFFIX)])
 
         # set the version in the network
         self._set_version_in_network_attributes(network)
@@ -3105,16 +3106,17 @@ class NDExNciPidLoader(object):
         # set reference network attribute
         self._set_reference_in_network_attributes(network)
 
+        # set common attributes from style network
+        issues = self._set_network_attributes_from_style_network(network, orig_network_key=orig_network_key)
+        report.addissues('Setting description and organism network attributes', issues)
+
         # set iconurl
         self._set_iconurl(network)
 
-        # set common attributes from style network
-        issues = self._set_network_attributes_from_style_network(network)
-        report.addissues('Setting description and organism network attributes', issues)
-
-        # set labels, author, and reviewer network attributes
-        issues = self._set_labels_author_and_reviewer_attributes(network)
-        report.addissues('Setting labels, author and reviewer network attributes', issues)
+        if self._args.skipindra is True:
+            # set labels, author, and reviewer network attributes
+            issues = self._set_labels_author_and_reviewer_attributes(network)
+            report.addissues('Setting labels, author and reviewer network attributes', issues)
 
         self._add_node_types_in_network_to_report(network, report)
 
@@ -3210,7 +3212,7 @@ class NDExNciPidLoader(object):
             issues.append('no labels found in network attributes tsv')
         return issues
 
-    def _set_network_attributes_from_style_network(self, network):
+    def _set_network_attributes_from_style_network(self, network, orig_network_key=None):
         """
         Copies organism and description network from style aka template
         network and adds it to the network passed in.
@@ -3232,6 +3234,11 @@ class NDExNciPidLoader(object):
                 description = ''
             else:
                 description = tempdesc['v']
+                if orig_network_key is not None:
+                    # UD-2299 replace key with URL of original network
+                    description = re.sub('@@ORIGINAL_NETWORK_URL@@',
+                                         'https://' + self._server + '/viewer/networks/' +
+                                         orig_network_key, description)
 
         network.set_network_attribute('description', description)
 
@@ -3241,6 +3248,21 @@ class NDExNciPidLoader(object):
         else:
             issues.append('organism network attribute not set cause its '
                           'missing from template network')
+
+        if self._args.skipindra is False:
+            # UD-2299 add all attributes from network minus description
+            for net_attr_name in self._template.get_network_attribute_names():
+                if net_attr_name in ['description', 'name', 'networkType']:
+                    continue
+                net_a = self._template.get_network_attribute(net_attr_name)
+                net_type = None
+                if 'd' in net_a:
+                    net_type = net_a['d']
+                network.set_network_attribute(net_attr_name, net_a['v'], type=net_type)
+            # also set derived from
+            network.set_network_attribute(DERIVED_FROM_ATTRIB, '<a href="https://' +
+                                          self._server + '/viewer/networks/' +
+                                          orig_network_key + '" target="_blank">' + orig_network_key + '</a>')
         return issues
 
     def _set_version_in_network_attributes(self, network):
@@ -3259,16 +3281,21 @@ class NDExNciPidLoader(object):
         :type :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
         :return: None
         """
-        network.set_network_attribute(REFERENCE_ATTRIB,
-                                      'Schaefer, Carl F et al.<br/>'
-                                      '<b>PID: the Pathway '
-                                      'Interaction Database.</b><br/>'
-                                      'Nucleic acids research vol. '
-                                      '37,Database issue (2009): '
-                                      'D674-9.<br/>'
-                                      '<a href="https://dx.doi.org/10.'
-                                      '1093%2Fnar%2Fgkn653">'
-                                      'doi:10.1093/nar/gkn653</a>')
+        if self._args.skipindra is True:
+            network.set_network_attribute(REFERENCE_ATTRIB,
+                                          'Schaefer, Carl F et al.<br/>'
+                                          '<b>PID: the Pathway '
+                                          'Interaction Database.</b><br/>'
+                                          'Nucleic acids research vol. '
+                                          '37,Database issue (2009): '
+                                          'D674-9.<br/>'
+                                          '<a href="https://dx.doi.org/10.'
+                                          '1093%2Fnar%2Fgkn653">'
+                                          'doi:10.1093/nar/gkn653</a>')
+        else:
+            # UD-2299 reference is to be set to empty string and to
+            # be updated with publication later
+            network.set_network_attribute(REFERENCE_ATTRIB, '')
 
     def _set_generatedby_in_network_attributes(self, network):
         """
@@ -3333,12 +3360,14 @@ class NDExNciPidLoader(object):
         :type :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
         :return: None
         """
-        network.set_network_attribute(DERIVED_FROM_ATTRIB,
-                                      '<a href="'
-                                      'ftp://' + DEFAULT_FTP_HOST +
-                                      '/' + DEFAULT_FTP_DIR + '/' +
-                                      network.get_name() + '.owl.gz">' +
-                                      network.get_name() + '.owl.gz</a>')
+        # UD-2299 Only add this if skip indra is true
+        if self._args.skipindra is True:
+            network.set_network_attribute(DERIVED_FROM_ATTRIB,
+                                          '<a href="'
+                                          'ftp://' + DEFAULT_FTP_HOST +
+                                          '/' + DEFAULT_FTP_DIR + '/' +
+                                          network.get_name() + '.owl.gz">' +
+                                          network.get_name() + '.owl.gz</a>')
 
     def _get_user_agent(self):
         """

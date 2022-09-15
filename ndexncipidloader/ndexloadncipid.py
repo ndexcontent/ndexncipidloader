@@ -555,7 +555,7 @@ class GeneSymbolSearcher(object):
         self._cache = {}
         self._bclient = bclient
 
-    def _query_mygene(self, val):
+    def _query_mygene(self, val, retry_count=5):
         """
         Queries biothings_client with 'val' to find
         hit
@@ -565,25 +565,68 @@ class GeneSymbolSearcher(object):
         :return: gene symbol or None
         :rtype: string
         """
-        try:
-            res = self._bclient.query(val)
-            if res is None:
-                logger.debug('Got None back from query for: ' + val)
-                return ''
-            logger.debug('Result from query for ' + val + ' ' + str(res))
-            if res['total'] == 0:
-                logger.debug('Got No hits back from query for: ' + val)
-                return ''
-            if len(res['hits']) > 0:
-                logger.debug('Got a hit from query for: ' + val)
-                sym_name = res['hits'][0].get('symbol')
-                if sym_name is None:
-                    logger.debug('Symbol name was None for ' + val)
+        count = 0
+        while count < retry_count:
+            count += 1
+            try:
+                res = self._bclient.query(val)
+                if res is None:
+                    logger.debug('Got None back from query for: ' + val)
                     return ''
-                return sym_name.upper()
-        except HTTPError as he:
-            logger.error('Caught exception running query for: ' + val)
+                logger.debug('Result from query for ' + val + ' ' + str(res))
+                if res['total'] == 0:
+                    logger.debug('Got No hits back from query for: ' + val)
+                    return ''
+                if len(res['hits']) > 0:
+                    logger.debug('Got a hit from query for: ' + val)
+                    sym_name = res['hits'][0].get('symbol')
+                    if sym_name is None:
+                        logger.debug('Symbol name was None for ' + val)
+                        return ''
+                    return sym_name.upper()
+            except HTTPError as he:
+                logger.warning('Caught exception running '
+                               'query for: ' + val +
+                               ' sleeping 1 second ' + str(he))
+            except Exception as e:
+                logger.warning('Caught exception running '
+                               'query for: ' + val +
+                               ' sleeping 1 second ' + str(e))
+            time.sleep(1)
 
+        return None
+
+    def get_raw_query_result(self, val, retry_count=5):
+        """
+
+        :param val:
+        :param retry_count:
+        :return:
+        """
+        count = 0
+        while count < retry_count:
+            count += 1
+            try:
+                res = self._bclient.query(val)
+                if res is None:
+                    logger.debug('Got None back from query for: ' + val)
+                    return res
+                logger.debug('Result from query for ' + val + ' ' + str(res))
+                if res['total'] == 0:
+                    logger.debug('Got No hits back from query for: ' + val)
+                    return res
+                if len(res['hits']) > 0:
+                    logger.debug('Got a hit from query for: ' + val)
+                    return res
+            except HTTPError as he:
+                logger.warning('Caught exception running '
+                               'query for: ' + val +
+                               ' sleeping 1 second ' + str(he))
+            except Exception as e:
+                logger.warning('Caught exception running '
+                               'query for: ' + val +
+                               ' sleeping 1 second ' + str(e))
+            time.sleep(1)
         return None
 
     def _query_uniprot(self, val):
@@ -1516,12 +1559,28 @@ class InvalidGeneSymbolRemover(NetworkUpdator):
     Fix for UD-1801
     """
 
-    def __init__(self, searcher=GeneSymbolSearcher()):
+    def __init__(self, searcher=GeneSymbolSearcher(),
+                 genesymbol=get_gene_symbol_mapping()):
         """
         Constructor
         """
         super(InvalidGeneSymbolRemover, self).__init__()
         self._searcher = searcher
+        self._gene_symbol_map = None
+        self._load_gene_symbol_map(genesymbol)
+
+    def _load_gene_symbol_map(self, genesymbol):
+        """
+        Loads gene symbol map from command line flag --genesymbol
+        :return:
+        """
+        if not os.path.isfile(genesymbol):
+            raise NDExNciPidLoaderError('Gene symbol mapping file ' +
+                                        str(genesymbol) +
+                                        ' does not exist')
+
+        with open(genesymbol, 'r') as f:
+            self._gene_symbol_map = json.load(f)
 
     def get_description(self):
         """
@@ -1554,15 +1613,32 @@ class InvalidGeneSymbolRemover(NetworkUpdator):
             if node_attr['v'] != 'protein':
                 continue
 
-            res = self._searcher.get_symbol(node['n'])
-            if res is None or res == '':
+            res = self._searcher.get_raw_query_result(node['n'])
+            if res is None or res == '' or 'hits' not in res:
                 issues.append('Removing node (' + str(node['n']) +
                               ') not a gene symbol')
                 nodes_to_remove.append(nodeid)
-            elif res != node['n']:
-                issues.append('Removing node (' + str(node['n']) +
-                              ') differs from symbol ' + res)
-                nodes_to_remove.append(nodeid)
+            else:
+                found_match = False
+                for hit in res['hits']:
+                    if 'symbol' not in hit:
+                        logger.debug('Hit lacks a symbol: ' +
+                                     str(hit))
+                        continue
+                    if hit['symbol'].upper() == str(node['n']).upper():
+                        found_match = True
+                        break
+                if found_match is False:
+                    # see if the symbol is in self._gene_symbol_map
+                    # if it is use that
+                    if str(node['n']).upper() in self._gene_symbol_map:
+                        logger.debug(node['n'] + ' in gene symbol map using that '
+                                                 'value')
+                        node['n'] = self._gene_symbol_map[node['n'].upper()]
+                    else:
+                        issues.append('Removing node (' + str(node['n']) +
+                                      ') no symbol matched ')
+                        nodes_to_remove.append(nodeid)
 
         node_fac = NetworkNodeFactory()
         for nodeid in nodes_to_remove:
@@ -2168,7 +2244,7 @@ class INDRAAnnotator(NetworkUpdator):
         super(INDRAAnnotator, self).__init__()
         if INDRA_LOADED is False:
             raise NDExNciPidLoaderError('ndexindraloader package not found')
-        self._indraobj = Indra(stmtfilters=stmtfilters)
+        self._indraobj = Indra(stmtfilters=stmtfilters, timeout=6000)
         self._indracachedir = indracachedir
         self._remove_ncipid_edges = remove_ncipid_edges
 
@@ -2189,9 +2265,9 @@ class INDRAAnnotator(NetworkUpdator):
         :rtype: list
         """
         try:
+            network.set_name(network.get_name() + INDRA_SUFFIX)
             self._indraobj.annotate_network(net_cx=network, netprefix='',
                                             source_value='NCI-PID')
-            network.set_name(network.get_name() + INDRA_SUFFIX)
         except NDExIndraLoaderError as ne:
             return [str(ne)]
 
@@ -3057,7 +3133,13 @@ class NDExNciPidLoader(object):
 
         if len(network.get_nodes()) is 0:
             report.addissues('Other',
-                             ['Network has 0 nodes remaining.'
+                             ['Network has 0 nodes remaining. '
+                              'Skipping Save to NDEx'])
+            return report
+
+        if len(network.get_edges()) is 0:
+            report.addissues('Other',
+                             ['Network has 0 edges remaining. '
                               'Skipping Save to NDEx'])
             return report
 
@@ -3223,7 +3305,7 @@ class NDExNciPidLoader(object):
         issues = []
 
         # for complete interaction network use this description
-        if network.get_name() == COMPLETE_INTERACTION_NAME:
+        if network.get_name().startswith(COMPLETE_INTERACTION_NAME):
             description = 'This network includes all interactions of the ' \
                           'individual NCI-PID pathways.<br/>'
         else:
@@ -3259,10 +3341,11 @@ class NDExNciPidLoader(object):
                 if 'd' in net_a:
                     net_type = net_a['d']
                 network.set_network_attribute(net_attr_name, net_a['v'], type=net_type)
-            # also set derived from
-            network.set_network_attribute(DERIVED_FROM_ATTRIB, '<a href="https://' +
-                                          self._server + '/viewer/networks/' +
-                                          orig_network_key + '" target="_blank">' + orig_network_key + '</a>')
+            # also set derived from if key is not None
+            if orig_network_key is not None:
+                network.set_network_attribute(DERIVED_FROM_ATTRIB, '<a href="https://' +
+                                              self._server + '/viewer/networks/' +
+                                              orig_network_key + '" target="_blank">' + orig_network_key + '</a>')
         return issues
 
     def _set_version_in_network_attributes(self, network):
@@ -3331,7 +3414,7 @@ class NDExNciPidLoader(object):
         :return: None
         """
         typeval = ['pathway']
-        if network.get_name() == COMPLETE_INTERACTION_NAME:
+        if network.get_name().startswith(COMPLETE_INTERACTION_NAME):
             typeval = ['pathway', 'interactome']
 
         network.set_network_attribute(TYPE_ATTRIB, typeval,
@@ -3361,13 +3444,20 @@ class NDExNciPidLoader(object):
         :return: None
         """
         # UD-2299 Only add this if skip indra is true
+        # and adjust the name cause (2.0) is appended to
+        # indra annotated and that will be incorrect for the
+        # owl file
         if self._args.skipindra is True:
-            network.set_network_attribute(DERIVED_FROM_ATTRIB,
-                                          '<a href="'
-                                          'ftp://' + DEFAULT_FTP_HOST +
-                                          '/' + DEFAULT_FTP_DIR + '/' +
-                                          network.get_name() + '.owl.gz">' +
-                                          network.get_name() + '.owl.gz</a>')
+            owlfilename = network.get_name()
+        else:
+            owlfilename = network.get_name()[:-len(INDRA_SUFFIX)]
+
+        network.set_network_attribute(DERIVED_FROM_ATTRIB,
+                                      '<a href="'
+                                      'ftp://' + DEFAULT_FTP_HOST +
+                                      '/' + DEFAULT_FTP_DIR + '/' +
+                                      owlfilename + '.owl.gz">' +
+                                      owlfilename + '.owl.gz</a>')
 
     def _get_user_agent(self):
         """
@@ -3739,12 +3829,14 @@ def main(args):
             updators.append(INDRAAnnotator(stmtfilters=stmtfilters,
                                            indracachedir=theargs.indracachedir,
                                            remove_ncipid_edges=not theargs.indrakeepnci))
-            if theargs.indrakeepnci is False:
-                updators.append(RemoveOrphanNodeUpdater())
+
             updators.append(EdgeWidthReScaler())
 
         if theargs.skipchecker is False:
-            updators.append(InvalidGeneSymbolRemover(searcher=searcher))
+            updators.append(InvalidGeneSymbolRemover(searcher=searcher,
+                                                     genesymbol=theargs.genesymbol))
+
+        updators.append(RemoveOrphanNodeUpdater())
 
         loader = NDExNciPidLoader(theargs,
                                   netattribfac=nafac,

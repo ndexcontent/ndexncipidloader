@@ -5481,5 +5481,19 @@
     "TXA2-R family": "TBXA2R",
     "TXA2-R family-inactive": "TBXA2R,TBXA2R",
     "Type I IFN family": "IFNA10,IFNA13,IFNA14,IFNA16,IFNA17,IFNA2,IFNA21,IFNA4,IFNA5,IFNA6,IFNA7,IFNA8",
-    "Ubc4-5 family": "UBE2D1,UBE2D2,UBE2D3"
+    "Ubc4-5 family": "UBE2D1,UBE2D2,UBE2D3",
+    "HJV": "HFE2",
+    "DELEC1": "DEC1",
+    "BHLHE40": "DEC1",
+    "HIST1H4C": "H4C3",
+    "HIST1H4E": "H4C5",
+    "HIST1H4F": "H4C6",
+    "HIST1H4H": "H4C8",
+    "HIST1H4J": "H4C11",
+    "HIST1H4K": "H4C12",
+    "Q9NYL2": "MAP3K20",
+    "NCoR": "NCOR1",
+    "a-cMyb": "MYBL1",
+    "HFE2": "HJV",
+    "Gelsolin": "GSN"
 }

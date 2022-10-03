@@ -553,6 +553,7 @@ class GeneSymbolSearcher(object):
         Constructor
         """
         self._cache = {}
+        self._raw_cache = {}
         self._bclient = bclient
 
     def _query_mygene(self, val, retry_count=5):
@@ -603,11 +604,15 @@ class GeneSymbolSearcher(object):
         :param retry_count:
         :return:
         """
+        if val in self._raw_cache:
+            return self._raw_cache[val]
+
         count = 0
         while count < retry_count:
             count += 1
             try:
                 res = self._bclient.query(val)
+                self._raw_cache[val] = res
                 if res is None:
                     logger.debug('Got None back from query for: ' + val)
                     return res
@@ -3195,10 +3200,10 @@ class NDExNciPidLoader(object):
         # set iconurl
         self._set_iconurl(network)
 
-        if self._args.skipindra is True:
-            # set labels, author, and reviewer network attributes
-            issues = self._set_labels_author_and_reviewer_attributes(network)
-            report.addissues('Setting labels, author and reviewer network attributes', issues)
+
+        # set labels, author, and reviewer network attributes
+        issues = self._set_labels_author_and_reviewer_attributes(network)
+        report.addissues('Setting labels, author and reviewer network attributes', issues)
 
         self._add_node_types_in_network_to_report(network, report)
 
@@ -3271,20 +3276,25 @@ class NDExNciPidLoader(object):
         :rtype: list
         """
         issues = []
-        name = network.get_name()
-        author = self._netattrib.get_author(name)
-        if author is not None:
-            network.set_network_attribute(NetworkAttributes.AUTHOR,
-                                          author)
+        if self._args.skipindra is True:
+            name = network.get_name()
         else:
-            issues.append('no author found in network attributes tsv')
+            name = network.get_name()[:-len(INDRA_SUFFIX)]
 
-        reviewers = self._netattrib.get_reviewers(name)
-        if reviewers is not None:
-            network.set_network_attribute(NetworkAttributes.REVIEWERS,
-                                          reviewers)
-        else:
-            issues.append('no reviewers found in network attributes tsv')
+        if self._args.skipindra is True:
+            author = self._netattrib.get_author(name)
+            if author is not None:
+                network.set_network_attribute(NetworkAttributes.AUTHOR,
+                                              author)
+            else:
+                issues.append('no author found in network attributes tsv')
+
+            reviewers = self._netattrib.get_reviewers(name)
+            if reviewers is not None:
+                network.set_network_attribute(NetworkAttributes.REVIEWERS,
+                                              reviewers)
+            else:
+                issues.append('no reviewers found in network attributes tsv')
 
         labels = self._netattrib.get_labels(name)
         if labels is not None:
@@ -3334,7 +3344,7 @@ class NDExNciPidLoader(object):
         if self._args.skipindra is False:
             # UD-2299 add all attributes from network minus description
             for net_attr_name in self._template.get_network_attribute_names():
-                if net_attr_name in ['description', 'name', 'networkType']:
+                if net_attr_name in ['description', 'name', 'networkType', 'labels']:
                     continue
                 net_a = self._template.get_network_attribute(net_attr_name)
                 net_type = None
@@ -3342,10 +3352,10 @@ class NDExNciPidLoader(object):
                     net_type = net_a['d']
                 network.set_network_attribute(net_attr_name, net_a['v'], type=net_type)
             # also set derived from if key is not None
-            if orig_network_key is not None:
-                network.set_network_attribute(DERIVED_FROM_ATTRIB, '<a href="https://' +
-                                              self._server + '/viewer/networks/' +
-                                              orig_network_key + '" target="_blank">' + orig_network_key + '</a>')
+            # if orig_network_key is not None:
+            #    network.set_network_attribute(DERIVED_FROM_ATTRIB, '<a href="https://' +
+            #                                  self._server + '/viewer/networks/' +
+            #                                  orig_network_key + '" target="_blank">' + orig_network_key + '</a>')
         return issues
 
     def _set_version_in_network_attributes(self, network):

@@ -99,7 +99,9 @@ class TestNDExNciPidLoader(unittest.TestCase):
     def test_set_wasderivedfrom(self):
         net = NiceCXNetwork()
         net.set_name('foo')
-        loader = NDExNciPidLoader(None)
+        p = Param()
+        p.skipindra = True
+        loader = NDExNciPidLoader(p)
         loader._set_wasderivedfrom(net)
         derived_attr = ndexloadncipid.DERIVED_FROM_ATTRIB
         self.assertEqual('<a href="ftp://' +
@@ -107,6 +109,19 @@ class TestNDExNciPidLoader(unittest.TestCase):
                          '/' + ndexloadncipid.DEFAULT_FTP_DIR + '/' +
                          'foo.owl.gz">foo.owl.gz</a>',
                          net.get_network_attribute(derived_attr)['v'])
+
+        p = Param()
+        p.skipindra = False
+        net.set_name('foo' + ndexloadncipid.INDRA_SUFFIX)
+        loader = NDExNciPidLoader(p)
+        loader._set_wasderivedfrom(net)
+        derived_attr = ndexloadncipid.DERIVED_FROM_ATTRIB
+        self.assertEqual('<a href="ftp://' +
+                         ndexloadncipid.DEFAULT_FTP_HOST +
+                         '/' + ndexloadncipid.DEFAULT_FTP_DIR + '/' +
+                         'foo.owl.gz">foo.owl.gz</a>',
+                         net.get_network_attribute(derived_attr)['v'])
+
 
     def test_set_normalizationversion(self):
         net = NiceCXNetwork()
@@ -163,8 +178,9 @@ class TestNDExNciPidLoader(unittest.TestCase):
         templatenet = NiceCXNetwork()
         templatenet.set_name('well')
         templatenet.set_network_attribute('organism', values='hi', type='string')
-
-        loader = NDExNciPidLoader(None)
+        p = Param()
+        p.skipindra = False
+        loader = NDExNciPidLoader(p)
         loader._template = templatenet
 
         res = loader._set_network_attributes_from_style_network(net)
@@ -181,7 +197,9 @@ class TestNDExNciPidLoader(unittest.TestCase):
         templatenet = NiceCXNetwork()
         templatenet.set_name('well')
         templatenet.set_network_attribute('description', values='hi', type='string')
-        loader = NDExNciPidLoader(None)
+        p = Param()
+        p.skipindra = False
+        loader = NDExNciPidLoader(p)
         loader._template = templatenet
 
         res = loader._set_network_attributes_from_style_network(net)
@@ -199,7 +217,9 @@ class TestNDExNciPidLoader(unittest.TestCase):
         templatenet.set_name('well')
         templatenet.set_network_attribute('description', values='hi', type='string')
         templatenet.set_network_attribute('organism', values='some', type='string')
-        loader = NDExNciPidLoader(None)
+        p = Param()
+        p.skipindra = False
+        loader = NDExNciPidLoader(p)
         loader._template = templatenet
 
         res = loader._set_network_attributes_from_style_network(net)

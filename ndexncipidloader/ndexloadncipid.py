@@ -3200,7 +3200,6 @@ class NDExNciPidLoader(object):
         # set iconurl
         self._set_iconurl(network)
 
-
         # set labels, author, and reviewer network attributes
         issues = self._set_labels_author_and_reviewer_attributes(network)
         report.addissues('Setting labels, author and reviewer network attributes', issues)
@@ -3438,8 +3437,9 @@ class NDExNciPidLoader(object):
         :type :py:class:`~ndex2.nice_cx_network.NiceCXNetwork`
         :return:
         """
-        network.set_network_attribute(ICONURL_ATTRIB,
-                                      self._args.iconurl)
+        if self._args.iconurl is not None:
+            network.set_network_attribute(ICONURL_ATTRIB,
+                                          self._args.iconurl)
 
     def _set_wasderivedfrom(self, network):
         """
